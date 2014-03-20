@@ -130,9 +130,6 @@ void gamenodeCallback(gamenode* gn, gamenodeEvent const* event)
       JSONValue credentials = JSONValue::object();
       credentials.set("username", JSONValue::string("bzar"));
       credentials.set("password", JSONValue::string("bzar"));
-/*      JSON_Value* credentials = JSON_Value_New_Object();
-      JSON_Object_Set_Property(credentials, "username", JSON_Value_New_String("bzar"));
-      JSON_Object_Set_Property(credentials, "password", JSON_Value_New_String("bzar"));*/
       long msgId = gamenodeMethodCall(gn, "newSession", credentials.extract());
       std::cout << "Tried to log in, msgId=" << msgId << std::endl;
       break;
