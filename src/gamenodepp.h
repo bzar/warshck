@@ -6,6 +6,7 @@
 #include <string>
 #include <functional>
 #include <map>
+#include <vector>
 
 class Gamenode
 {
@@ -75,6 +76,12 @@ void Gamenode::onError(ErrorCallback callback)
 void Gamenode::onMethod(std::string const& methodName, Method method)
 {
   _methods[methodName] = method;
+  std::vector<const char*> methodList;
+  for(auto& pair : _methods)
+  {
+    methodList.push_back(pair.first.data());
+  }
+  gamenodeSetMethodNames(_gn, methodList.data(), methodList.size());
 }
 
 bool Gamenode::connect(std::string const& address,
@@ -110,7 +117,7 @@ void Gamenode::handleResponse(long msgId, JSON_Value* value)
   if(iter != _callbacks.end())
   {
     auto& callback = iter->second;
-    JSONValue v(value);
+    JSONValue v(JSON_Value_Clone(value));
     callback(v);
     _callbacks.erase(iter);
   }
@@ -122,7 +129,7 @@ void Gamenode::handleMethodCall(long msgId, std::string const& methodName, JSON_
   if(iter != _methods.end())
   {
     auto& callback = iter->second;
-    JSONValue p(params);
+    JSONValue p(JSON_Value_Clone(params));
     JSONValue ret = callback(p);
     gamenodeResponse(_gn, msgId, ret.extract());
   }

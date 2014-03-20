@@ -63,6 +63,8 @@ char gamenodeHandle(gamenode* gn);
 void gamenodeSetUserData(gamenode* gn, void* data);
 void* gamenodeUserData(gamenode* gn);
 
+void gamenodeSetMethodNames(gamenode* gn, const char** methodNames, unsigned int numMethodNames);
+
 long int gamenodeMethodCall(gamenode* gn, char const* methodName, struct JSON_Value* params);
 void gamenodeResponse(gamenode* gn, long int msgId, struct JSON_Value* value);
 
