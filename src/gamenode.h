@@ -51,7 +51,11 @@ char gamenodeConnect(gamenode* gn,
                      const char *path,
                      const char *host,
                      const char *origin);
+void gamenodeDisconnect(gamenode* gn);
 char gamenodeHandle(gamenode* gn);
+
+void gamenodeSetUserData(gamenode* gn, void* data);
+void* gamenodeUserData(gamenode* gn);
 
 long int gamenodeMethodCall(gamenode* gn, char const* methodName, struct JSON_Value* params);
 

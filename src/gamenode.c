@@ -29,6 +29,7 @@ typedef struct _gamenode {
 
   long gamenodeMessageId;
   gamenodeCallbackFunc callback;
+  void* userData;
 } _gamenode;
 
 static int callback_gamenode(struct libwebsocket_context *context, struct libwebsocket *wsi,
@@ -51,7 +52,7 @@ void gamenodeFree(gamenode* gn)
 {
   if(gn->wsCtx)
   {
-    libwebsocket_context_destroy(gn->wsCtx);
+    gamenodeDisconnect(gn);
   }
   free(gn);
 }
@@ -116,7 +117,7 @@ char gamenodeConnect(gamenode* gn,
   char* handshakeContent = httpPost(handshakeUrl, port);
   if(!handshakeContent)
   {
-    printf("Error gentting handshake information\n");
+    printf("Error getting handshake information\n");
     return -1;
   }
 
@@ -150,7 +151,6 @@ char gamenodeConnect(gamenode* gn,
 
   char transportPath[256] = {0};
   sprintf(transportPath, "/socket.io/1/websocket/%s", gn->sioSessionId);
-  printf("Transport url: %s\n", transportPath);
   gn->ws = libwebsocket_client_connect(gn->wsCtx, address, port, 0, transportPath, host, origin, "gamenode", -1);
   if(!gn->ws)
   {
@@ -160,6 +160,25 @@ char gamenodeConnect(gamenode* gn,
   }
 
   return 0;
+}
+
+void gamenodeDisconnect(gamenode* gn)
+{
+  if (gn->wsCtx)
+  {
+    libwebsocket_context_destroy(gn->wsCtx);
+    gn->wsCtx = NULL;
+    gn->ws = NULL;
+    gn->gamenodeMessageId = 0;
+    queueData* qd = gn->writeQueue;
+    while(qd)
+    {
+      queueData* qdPrev = qd;
+      qd = qd->next;
+      free(qdPrev->data);
+      free(qdPrev);
+    }
+  }
 }
 
 char gamenodeHandle(gamenode* gn)
@@ -209,7 +228,7 @@ const char* LWS_EXT_CALLBACK_STR[] = {
 
 static void queueDataForSending(gamenode* gn, char const* data)
 {
-  printf("Sending: %s\n", data);
+  //printf("Sending: %s\n", data);
   size_t qdSize = sizeof(queueData);
   struct queueData* qData = calloc(2, qdSize);
   qData->size = strlen(data);
@@ -226,8 +245,8 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
                              enum libwebsocket_callback_reasons reason, void *user, void *in, size_t len)
 {
   gamenode* gn = (gamenode*) libwebsocket_context_user(context);
-  if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
-    printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);
+  /*if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
+    printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);*/
 
   // Request write for heartbeat if necessary
   time_t now;
@@ -262,10 +281,16 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
     case LWS_CALLBACK_RECEIVE: break;
     case LWS_CALLBACK_CLIENT_RECEIVE:
     {
-      printf("Received: %s\n", (char*) in);
+      //printf("Received: %s\n", (char*) in);
       lsio_packet_t packet;
-      lsio_packet_parse(&packet, (char*) in);
-      printf("packet type = %d\n", packet.type);
+      int parseResult = lsio_packet_parse(&packet, (char*) in);
+
+      if(parseResult == LSIO_ERROR)
+      {
+        printf("Error parsing packet\n");
+        break;
+      }
+      //printf("packet type = %d\n", packet.type);
 
       switch(packet.type)
       {
@@ -278,7 +303,7 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
         {
           struct JSON_Value* msg = JSON_Decode(packet.data);
           struct JSON_Value* msgType = JSON_Object_Get_Property(msg, "type");
-          printf("msgType = %s\n", msgType->string_value);
+          //printf("msgType = %s\n", msgType->string_value);
           if(strcmp(msgType->string_value, "response") == 0)
           {
             gamenodeEvent event;
@@ -310,7 +335,7 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
       while(gn->writeQueue)
       {
         queueData* d = gn->writeQueue;
-        printf("Sending data: %s\n", d->data);
+        //printf("Sending data: %s\n", d->data);
         gn->writeQueue = d->next;
         libwebsocket_write(wsi, d->data + LWS_SEND_BUFFER_PRE_PADDING, d->size, LWS_WRITE_TEXT);
         free(d->data);
@@ -383,4 +408,16 @@ long gamenodeMethodCall(gamenode* gn, const char* methodName, struct JSON_Value*
   libwebsocket_callback_on_writable(gn->wsCtx, gn->ws);
 
   return msgId;
+}
+
+
+void gamenodeSetUserData(gamenode* gn, void* data)
+{
+  gn->userData = data;
+}
+
+
+void* gamenodeUserData(gamenode* gn)
+{
+  return gn->userData;
 }
