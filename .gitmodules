@@ -1,0 +1,12 @@
+[submodule "lib/socket.io-clientpp"]
+	path = lib/socket.io-clientpp
+	url = https://github.com/ebshimizu/socket.io-clientpp.git
+[submodule "lib/libwebsockets"]
+	path = lib/libwebsockets
+	url = https://github.com/warmcat/libwebsockets.git
+[submodule "lib/libsocketio"]
+	path = lib/libsocketio
+        url = https://github.com/bzar/libsocketio.git
+[submodule "lib/json"]
+	path = lib/json
+	url = https://github.com/bzar/json.git
