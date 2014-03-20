@@ -11,6 +11,7 @@ class Gamenode
 {
 public:
   typedef std::function<void(JSONValue const&)> MethodCallback;
+  typedef std::function<JSONValue(JSONValue const&)> Method;
   typedef std::function<void()> ConnectCallback;
   typedef std::function<void()> DisconnectCallback;
   typedef std::function<void()> ErrorCallback;
@@ -21,6 +22,7 @@ public:
   void onConnect(ConnectCallback callback);
   void onDisconnect(DisconnectCallback callback);
   void onError(ErrorCallback callback);
+  void onMethod(std::string const& methodName, Method method);
 
   bool connect(std::string const& address,
                int port,
@@ -35,9 +37,11 @@ public:
 private:
   static void gamenodeCallback(gamenode* gn, gamenodeEvent const* event);
   void handleResponse(long msgId, JSON_Value* value);
+  void handleMethodCall(long msgId, std::string const& methodName, JSON_Value* params);
 
   gamenode* _gn;
   std::map<long int, MethodCallback> _callbacks;
+  std::map<std::string, Method> _methods;
   ConnectCallback _connectCallback;
   DisconnectCallback _disconnectCallback;
   ErrorCallback _errorCallback;
@@ -66,6 +70,11 @@ void Gamenode::onDisconnect(DisconnectCallback callback)
 void Gamenode::onError(ErrorCallback callback)
 {
   _errorCallback = callback;
+}
+
+void Gamenode::onMethod(std::string const& methodName, Method method)
+{
+  _methods[methodName] = method;
 }
 
 bool Gamenode::connect(std::string const& address,
@@ -107,6 +116,18 @@ void Gamenode::handleResponse(long msgId, JSON_Value* value)
   }
 }
 
+void Gamenode::handleMethodCall(long msgId, std::string const& methodName, JSON_Value* params)
+{
+  auto iter = _methods.find(methodName);
+  if(iter != _methods.end())
+  {
+    auto& callback = iter->second;
+    JSONValue p(params);
+    JSONValue ret = callback(p);
+    gamenodeResponse(_gn, msgId, ret.extract());
+  }
+}
+
 void Gamenode::gamenodeCallback(gamenode* gn, gamenodeEvent const* event)
 {
   Gamenode* gnpp = static_cast<Gamenode*>(gamenodeUserData(gn));
@@ -131,6 +152,11 @@ void Gamenode::gamenodeCallback(gamenode* gn, gamenodeEvent const* event)
     case GAMENODE_RESPONSE:
     {
       gnpp->handleResponse(event->response.id, event->response.value);
+      break;
+    }
+    case GAMENODE_METHOD_CALL:
+    {
+      gnpp->handleMethodCall(event->methodCall.id, event->methodCall.methodName, event->methodCall.params);
       break;
     }
   }

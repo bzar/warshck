@@ -13,7 +13,8 @@ typedef enum gamenodeEventType
   GAMENODE_CONNECTED,
   GAMENODE_DISCONNECTED,
   GAMENODE_ERROR,
-  GAMENODE_RESPONSE
+  GAMENODE_RESPONSE,
+  GAMENODE_METHOD_CALL
 } gamenodeEventType;
 
 typedef struct gamenodeEvent {
@@ -37,7 +38,12 @@ typedef struct gamenodeEvent {
       long id;
       struct JSON_Value* value;
     } response;
-
+    struct
+    {
+      long id;
+      char const* methodName;
+      struct JSON_Value* params;
+    } methodCall;
   };
 } gamenodeEvent;
 
@@ -58,6 +64,7 @@ void gamenodeSetUserData(gamenode* gn, void* data);
 void* gamenodeUserData(gamenode* gn);
 
 long int gamenodeMethodCall(gamenode* gn, char const* methodName, struct JSON_Value* params);
+void gamenodeResponse(gamenode* gn, long int msgId, struct JSON_Value* value);
 
 #ifdef __cplusplus
 }

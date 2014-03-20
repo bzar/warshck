@@ -312,6 +312,15 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
             event.response.value = JSON_Object_Get_Property(msg, "content");
             gn->callback(gn, &event);
           }
+           if(strcmp(msgType->string_value, "call") == 0)
+          {
+            gamenodeEvent event;
+            event.type = GAMENODE_METHOD_CALL;
+            event.methodCall.id = JSON_Object_Get_Property(msg, "id")->number_value;
+            event.methodCall.methodName= JSON_Object_Get_Property(msg, "method")->string_value;
+            event.methodCall.params = JSON_Object_Get_Property(msg, "params");
+            gn->callback(gn, &event);
+          }
           JSON_Value_Free(msg);
           break;
         }
@@ -410,6 +419,24 @@ long gamenodeMethodCall(gamenode* gn, const char* methodName, struct JSON_Value*
   return msgId;
 }
 
+
+void gamenodeResponse(gamenode* gn, long int msgId, struct JSON_Value* value)
+{
+  struct JSON_Value* msg = JSON_Value_New_Object();
+  JSON_Object_Set_Property(msg,  "id", JSON_Value_New_Number(msgId));
+  JSON_Object_Set_Property(msg,  "type", JSON_Value_New_String("response"));
+  JSON_Object_Set_Property(msg,  "content", value);
+
+  char* msgData = JSON_Encode(msg, 4096, NULL);
+  JSON_Value_Free(msg);
+
+  char msgStr[4096] = {0};
+  sprintf(msgStr, "3:%d::", ++gn->gamenodeMessageId);
+  strcat(msgStr, msgData);
+  free(msgData);
+  queueDataForSending(gn, msgStr);
+  libwebsocket_callback_on_writable(gn->wsCtx, gn->ws);
+}
 
 void gamenodeSetUserData(gamenode* gn, void* data)
 {
