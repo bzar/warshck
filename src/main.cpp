@@ -26,7 +26,6 @@ int main(int argc, char** argv)
       std::cout << "Got response to login: " << response.toString() << std::endl;
       gn.call("subscribeGame", JSONValue::string(gameId), [&gn](JSONValue const& response) {
         std::cout << "Subscribed to game" << std::endl;
-        gn.disconnect();
       });
     });
   });

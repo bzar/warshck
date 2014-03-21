@@ -23,6 +23,9 @@ typedef struct _gamenode {
   struct lws_context_creation_info wsInfo;
   struct queueData* writeQueue;
 
+  char* readBuffer;
+  size_t readBufferSize;
+
   char* sioSessionId;
   int sioHeartbeatInterval;
   int sioConnectionTimeout;
@@ -163,6 +166,9 @@ char gamenodeConnect(gamenode* gn,
   gn->wsInfo.uid = -1;
   gn->wsInfo.protocols = wsProtocols;
   gn->wsInfo.user = gn;
+  gn->wsInfo.ka_time = 1;
+  gn->wsInfo.ka_interval = 5;
+  gn->wsInfo.ka_probes = 5;
 
   gn->wsCtx = libwebsocket_create_context(&gn->wsInfo);
   if(!gn->wsCtx)
@@ -264,12 +270,25 @@ static void queueDataForSending(gamenode* gn, char const* data)
 
 long int sendMessage(gamenode* gn, long msgId, struct JSON_Value* msg)
 {
-  char* msgData = JSON_Encode(msg, 4096, NULL);
-  char msgStr[4096] = {0};
+  long size = 1024;
+  long length;
+  char* msgData = NULL;
+  do
+  {
+    if(msgData)
+    {
+      free(msgData);
+    }
+    msgData = JSON_Encode(msg, size, &length);
+    size *= 2;
+  } while(size == length);
+
+  char* msgStr = calloc(size, sizeof(char));
   sprintf(msgStr, "3:%d::", msgId);
   strcat(msgStr, msgData);
   free(msgData);
   queueDataForSending(gn, msgStr);
+  free(msgStr);
   libwebsocket_callback_on_writable(gn->wsCtx, gn->ws);
 
   return msgId;
@@ -301,8 +320,8 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
                              enum libwebsocket_callback_reasons reason, void *user, void *in, size_t len)
 {
   gamenode* gn = (gamenode*) libwebsocket_context_user(context);
-  /*if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
-    printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);*/
+  if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
+    printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);
 
   // Request write for heartbeat if necessary
   time_t now;
@@ -332,11 +351,32 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
     case LWS_CALLBACK_RECEIVE: break;
     case LWS_CALLBACK_CLIENT_RECEIVE:
     {
-      printf("Received: %s\n", (char*) in);
+      const size_t remaining = libwebsockets_remaining_packet_payload(wsi);
+      if(remaining || !libwebsocket_is_final_fragment(wsi))
+      {
+        // Not last fragment, buffer
+        if(!gn->readBuffer)
+        {
+          gn->readBufferSize = len + remaining + 1;
+          gn->readBuffer = calloc(gn->readBufferSize, sizeof(char));
+        }
+        strcat(gn->readBuffer, (char*)  in);
+        return 0;
+      }
+
+      char* buffer = (char*) in;
+      if(gn->readBuffer)
+      {
+        // Last fragment, data previously buffered
+        strcat(gn->readBuffer, (char*)  in);
+        buffer = gn->readBuffer;
+      }
+
+      printf("Received: %s\n", buffer);
       lsio_packet_t* packet = calloc(1, sizeof(lsio_packet_t));
       lsio_packet_init(packet);
 
-      int parseResult = lsio_packet_parse(packet, (char*) in);
+      int parseResult = lsio_packet_parse(packet, buffer);
 
       if(parseResult == LSIO_ERROR)
       {
@@ -401,10 +441,16 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
       }
 
       lsio_packet_free(packet);
+      if(gn->readBuffer)
+      {
+        free(gn->readBuffer);
+        gn->readBuffer = NULL;
+      }
       break;
     }
     case LWS_CALLBACK_CLIENT_RECEIVE_PONG: break;
     case LWS_CALLBACK_CLIENT_WRITEABLE:
+    {
       while(gn->writeQueue)
       {
         queueData* d = gn->writeQueue;
@@ -418,6 +464,7 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
         }
       }
       break;
+    }
     case LWS_CALLBACK_SERVER_WRITEABLE: break;
     case LWS_CALLBACK_HTTP: break;
     case LWS_CALLBACK_HTTP_BODY: break;
