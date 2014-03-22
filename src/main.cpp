@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdlib>
 
+#include "game.h"
 
 int main(int argc, char** argv)
 {
@@ -13,15 +14,19 @@ int main(int argc, char** argv)
   }
 
   std::string const gameId = argv[1];
+  std::string const user = argv[2];
+  std::string const pass = argv[3];
+
   lws_set_log_level(LLL_DEBUG, nullptr);
   bool running = true;
   Gamenode gn;
+  wars::Game game;
 
-  gn.connected().on<void>([&gn, &gameId]() {
+  gn.connected().on<void>([&gn, &gameId, &user, &pass, &game]() {
     std::cout << "Connected, logging in" << std::endl;
     JSONValue credentials = JSONValue::object();
-    credentials.set("username", JSONValue::string("bzar"));
-    credentials.set("password", JSONValue::string("bzar"));
+    credentials.set("username", JSONValue::string(user));
+    credentials.set("password", JSONValue::string(pass));
 
     gn.call("newSession", credentials).then<JSONValue>([&gn, &gameId](JSONValue const& response) {
       std::cout << "Got response to login: " << response.toString() << std::endl;
@@ -29,8 +34,13 @@ int main(int argc, char** argv)
     }).then<JSONValue>([&gn, &gameId](JSONValue const& response) {
       std::cout << "Subscribed to game" << std::endl;
       return gn.call("gameData", JSONValue::string(gameId));
-    }).then<void>([&gn](JSONValue const& response) {
+    }).then<JSONValue>([&gn, &gameId, &game](JSONValue const& response) {
       std::cout << "Got game data" << std::endl;
+      game.setGameDataFromJSON(response);
+      return gn.call("gameRules", JSONValue::string(gameId));
+    }).then<void>([&gn, &game](JSONValue const& response) {
+      std::cout << "Got game rules" << std::endl;
+      game.setRulesFromJSON(response);
     });
   });
 
