@@ -17,20 +17,24 @@ int main(int argc, char** argv)
   bool running = true;
   Gamenode gn;
 
-  gn.onConnect([&gn, &gameId]() {
+  gn.connected().on<void>([&gn, &gameId]() {
     std::cout << "Connected, logging in" << std::endl;
     JSONValue credentials = JSONValue::object();
     credentials.set("username", JSONValue::string("bzar"));
     credentials.set("password", JSONValue::string("bzar"));
-    gn.call("newSession", credentials, [&gn, &gameId](JSONValue const& response) {
+
+    gn.call("newSession", credentials).then<JSONValue>([&gn, &gameId](JSONValue const& response) {
       std::cout << "Got response to login: " << response.toString() << std::endl;
-      gn.call("subscribeGame", JSONValue::string(gameId), [&gn](JSONValue const& response) {
-        std::cout << "Subscribed to game" << std::endl;
-      });
+      return gn.call("subscribeGame", JSONValue::string(gameId));
+    }).then<JSONValue>([&gn, &gameId](JSONValue const& response) {
+      std::cout << "Subscribed to game" << std::endl;
+      return gn.call("gameData", JSONValue::string(gameId));
+    }).then<void>([&gn](JSONValue const& response) {
+      std::cout << "Got game data" << std::endl;
     });
   });
 
-  gn.onDisconnect([&running]() {
+  gn.disconnected().on<void>([&running]() {
     running = false;
   });
 
