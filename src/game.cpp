@@ -94,6 +94,9 @@ void wars::Game::setGameDataFromJSON(const JSONValue& value)
     updateTileFromJSON(tile);
   }
 
+  Event event;
+  event.type = EventType::GAMEDATA;
+  eventStream.push(event);
 }
 
 void wars::Game::processEventFromJSON(const JSONValue& value)
@@ -538,6 +541,21 @@ wars::Game::Tile const & wars::Game::getTile(const std::string& tileId) const
 wars::Game::Unit const& wars::Game::getUnit(const std::string& unitId) const
 {
   return units.at(unitId);
+}
+
+const std::unordered_map<std::string, wars::Game::Tile>& wars::Game::getTiles() const
+{
+  return tiles;
+}
+
+const std::unordered_map<std::string, wars::Game::Unit>& wars::Game::getUnits() const
+{
+  return units;
+}
+
+const wars::Rules& wars::Game::getRules() const
+{
+  return rules;
 }
 
 std::string wars::Game::updateTileFromJSON(const JSONValue& value)

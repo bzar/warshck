@@ -19,6 +19,11 @@ namespace wars
 
         switch(e.type)
         {
+          case wars::Game::EventType::GAMEDATA:
+          {
+            std::cout << "Initial gamedata available" << std::endl;
+            break;
+          }
           case wars::Game::EventType::MOVE:
           {
             wars::Game::Unit const& unit = game->getUnit(*e.move.unitId);

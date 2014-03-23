@@ -5,6 +5,7 @@
 
 #include "game.h"
 #include "loggerview.h"
+#include "glhckview.h"
 
 int main(int argc, char** argv)
 {
@@ -34,14 +35,14 @@ int main(int argc, char** argv)
       return gn.call("subscribeGame", JSONValue::string(gameId));
     }).then<JSONValue>([&gn, &gameId](JSONValue const& response) {
       std::cout << "Subscribed to game" << std::endl;
-      return gn.call("gameData", JSONValue::string(gameId));
-    }).then<JSONValue>([&gn, &gameId, &game](JSONValue const& response) {
-      std::cout << "Got game data" << std::endl;
-      game.setGameDataFromJSON(response);
       return gn.call("gameRules", JSONValue::string(gameId));
-    }).then<void>([&gn, &game](JSONValue const& response) {
+    }).then<JSONValue>([&gn, &gameId, &game](JSONValue const& response) {
       std::cout << "Got game rules" << std::endl;
       game.setRulesFromJSON(response);
+      return gn.call("gameData", JSONValue::string(gameId));
+    }).then<void>([&gn, &game](JSONValue const& response) {
+      std::cout << "Got game data" << std::endl;
+      game.setGameDataFromJSON(response);
     });
   });
 
@@ -124,6 +125,10 @@ int main(int argc, char** argv)
   wars::LoggerView logger;
   logger.setGame(&game);
 
+  wars::GlhckView::init(argc, argv);
+  wars::GlhckView view;
+  view.setGame(&game);
+
   while(running)
   {
     usleep(1000);
@@ -133,11 +138,13 @@ int main(int argc, char** argv)
       break;
     }
 
-    if(!logger.handle())
+    if(!logger.handle() || !view.handle())
     {
       break;
     }
   }
+
+  wars::GlhckView::term();
 
   return EXIT_SUCCESS;
 }

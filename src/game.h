@@ -26,7 +26,7 @@ namespace wars
     static const int NEUTRAL_PLAYER_NUMBER = 0;
 
     enum class EventType {
-      MOVE, WAIT, ATTACK, COUNTERATTACK, CAPTURE, CAPTURED,
+      GAMEDATA, MOVE, WAIT, ATTACK, COUNTERATTACK, CAPTURE, CAPTURED,
       DEPLOY, UNDEPLOY, LOAD, UNLOAD, DESTROY, REPAIR, BUILD,
       REGENERATE_CAPTURE_POINTS, PRODUCE_FUNDS, BEGIN_TURN,
       END_TURN, TURN_TIMEOUT, FINISHED, SURRENDER
@@ -208,6 +208,10 @@ namespace wars
 
     Tile const& getTile(std::string const& tileId) const;
     Unit const& getUnit(std::string const& unitId) const;
+
+    std::unordered_map<std::string, Tile> const& getTiles() const;
+    std::unordered_map<std::string, Unit> const& getUnits() const;
+    Rules const& getRules() const;
 
   private:
     static std::unordered_map<std::string, State> const STATE_NAMES;
