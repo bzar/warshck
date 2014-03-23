@@ -115,6 +115,96 @@ int main(int argc, char** argv)
     return JSONValue::null();
   });
 
+  game.events().on<void>([&game](wars::Game::Event const& e) {
+    switch(e.type)
+    {
+      case wars::Game::EventType::MOVE:
+      {
+        break;
+      }
+      case wars::Game::EventType::WAIT:
+      {
+        break;
+      }
+      case wars::Game::EventType::ATTACK:
+      {
+        break;
+      }
+      case wars::Game::EventType::COUNTERATTACK:
+      {
+        break;
+      }
+      case wars::Game::EventType::CAPTURE:
+      {
+        break;
+      }
+      case wars::Game::EventType::CAPTURED:
+      {
+        break;
+      }
+      case wars::Game::EventType::DEPLOY:
+      {
+        break;
+      }
+      case wars::Game::EventType::UNDEPLOY:
+      {
+        break;
+      }
+      case wars::Game::EventType::LOAD:
+      {
+        break;
+      }
+      case wars::Game::EventType::UNLOAD:
+      {
+        break;
+      }
+      case wars::Game::EventType::DESTROY:
+      {
+        break;
+      }
+      case wars::Game::EventType::REPAIR:
+      {
+        break;
+      }
+      case wars::Game::EventType::BUILD:
+      {
+        break;
+      }
+      case wars::Game::EventType::REGENERATE_CAPTURE_POINTS:
+      {
+        break;
+      }
+      case wars::Game::EventType::PRODUCE_FUNDS:
+      {
+        break;
+      }
+      case wars::Game::EventType::BEGIN_TURN:
+      {
+        break;
+      }
+      case wars::Game::EventType::END_TURN:
+      {
+        break;
+      }
+      case wars::Game::EventType::TURN_TIMEOUT:
+      {
+        break;
+      }
+      case wars::Game::EventType::FINISHED:
+      {
+        break;
+      }
+      case wars::Game::EventType::SURRENDER:
+      {
+        break;
+      }
+      default:
+      {
+        break;
+      }
+    }
+  });
+
   if(!gn.connect("localhost", 8888, "/", "localhost", "localhost"))
   {
     std::cerr << "Error creating gamenode connection" << std::endl;

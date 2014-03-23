@@ -1,6 +1,7 @@
 #include "game.h"
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 
 #include "jsonpp.h"
 
@@ -47,7 +48,7 @@ namespace
 wars::Game::Game(): gameId(), authorId(),  name(), mapId(),
   state(State::PREGAME), turnStart(0), turnNumber(0), roundNumber(0), inTurnNumber(0),
   publicGame(false), turnLength(0), bannedUnits(0),
-  rules(), tiles(), units(),  players()
+  rules(), tiles(), units(),  players(), eventStream()
 {
 
 }
@@ -55,6 +56,11 @@ wars::Game::Game(): gameId(), authorId(),  name(), mapId(),
 wars::Game::~Game()
 {
 
+}
+
+Stream<wars::Game::Event> wars::Game::events()
+{
+  return eventStream;
 }
 
 void wars::Game::setRulesFromJSON(const JSONValue& value)
@@ -249,121 +255,279 @@ void wars::Game::processEventsFromJSON(const JSONValue& value)
 
 void wars::Game::moveUnit(std::string const& unitId, std::string const& tileId, Path const& path)
 {
-  std::cout << "void wars::Game::moveUnit(std::string const& unitId, std::string const& tileId, Path const& path)" << std::endl;
+  Event event;
+  event.type = EventType::MOVE;
+  event.move.unitId = &unitId;
+  event.move.tileId = &tileId;
+  event.move.path = &path;
+  eventStream.push(event);
+
+  Unit& unit = units.at(unitId);
+  Tile& tile = tiles.at(tileId);
+  tiles.at(unit.tileId).unitId.clear();
+  if(tile.unitId.empty())
+    tile.unitId = unitId;
+  unit.tileId = tileId;
 }
 
 void wars::Game::waitUnit(std::string const& unitId)
 {
-  std::cout << "void wars::Game::waitUnit(std::string const& unitId)" << std::endl;
+  Event event;
+  event.type = EventType::WAIT;
+  event.wait.unitId = &unitId;
+  eventStream.push(event);
 
+  units.at(unitId).moved = true;
 }
 
 void wars::Game::attackUnit(std::string const& attackerId, std::string const& targetId, int damage)
 {
-  std::cout << "void wars::Game::attackUnit(std::string const& attackerId, std::string const& targetId, int damage)" << std::endl;
+  Event event;
+  event.type = EventType::ATTACK;
+  event.attack.attackerId = &attackerId;
+  event.attack.targetId = &targetId;
+  event.attack.damage = damage;
+  eventStream.push(event);
 
+units.at(attackerId).moved = true;
+units.at(targetId).health -= damage;
 }
 
 void wars::Game::counterattackUnit(std::string const& attackerId, std::string const& targetId, int damage)
 {
-  std::cout << "void wars::Game::counterattackUnit(std::string const& attackerId, std::string const& targetId, int damage)" << std::endl;
+  Event event;
+  event.type = EventType::COUNTERATTACK;
+  event.counterattack.attackerId = &attackerId;
+  event.counterattack.targetId = &targetId;
+  event.counterattack.damage = damage;
+  eventStream.push(event);
 
+  units.at(targetId).health -= damage;
 }
 
 void wars::Game::captureTile(std::string const& unitId, std::string const& tileId, int left)
 {
-  std::cout << "void wars::Game::captureTile(std::string const& unitId, std::string const& tileId, int left)" << std::endl;
+  Event event;
+  event.type = EventType::CAPTURE;
+  event.capture.unitId = &unitId;
+  event.capture.tileId = &tileId;
+  event.capture.left = left;
+  eventStream.push(event);
 
+  units.at(unitId).moved = true;
+  Tile& tile = tiles.at(tileId);
+  tile.capturePoints = left;
+  tile.beingCaptured = true;
 }
 
 void wars::Game::capturedTile(std::string const& unitId, std::string const& tileId)
 {
-  std::cout << "void wars::Game::capturedTile(std::string const& unitId, std::string const& tileId)" << std::endl;
+  Event event;
+  event.type = EventType::CAPTURED;
+  event.captured.unitId = &unitId;
+  event.captured.tileId = &tileId;
+  eventStream.push(event);
 
+  Tile& tile = tiles.at(tileId);
+  tile.capturePoints = 1;
+  tile.beingCaptured = false;
+  tile.owner = units.at(unitId).owner;
 }
 
 void wars::Game::deployUnit(std::string const& unitId)
 {
-  std::cout << "void wars::Game::deployUnit(std::string const& unitId)" << std::endl;
+  Event event;
+  event.type = EventType::DEPLOY;
+  event.deploy.unitId = &unitId;
+  eventStream.push(event);
 
+  Unit& unit = units.at(unitId);
+  unit.moved = true;
+  unit.deployed = true;
 }
 
 void wars::Game::undeployUnit(std::string const& unitId)
 {
-  std::cout << "void wars::Game::undeployUnit(std::string const& unitId)" << std::endl;
+  Event event;
+  event.type = EventType::UNDEPLOY;
+  event.undeploy.unitId = &unitId;
+  eventStream.push(event);
 
+  Unit& unit = units.at(unitId);
+  unit.moved = true;
+  unit.deployed = false;
 }
 
 void wars::Game::loadUnit(std::string const& unitId, std::string const& carrierId)
 {
-  std::cout << "void wars::Game::loadUnit(std::string const& unitId, std::string const& carrierId)" << std::endl;
+  Event event;
+  event.type = EventType::LOAD;
+  event.load.unitId = &unitId;
+  event.load.carrierId = &carrierId;
+  eventStream.push(event);
 
+  Unit& unit = units.at(unitId);
+  unit.tileId.clear();
+  unit.carriedBy = carrierId;
+  unit.moved = true;
+  Unit& carrier = units.at(carrierId);
+  carrier.carriedUnits.push_back(unitId);
 }
 
 void wars::Game::unloadUnit(std::string const& unitId, std::string const& carrierId, std::string const& tileId)
 {
-  std::cout << "void wars::Game::unloadUnit(std::string const& unitId, std::string const& carrierId, std::string const& tileId)" << std::endl;
+  Event event;
+  event.type = EventType::UNLOAD;
+  event.unload.unitId = &unitId;
+  event.unload.carrierId = &carrierId;
+  event.unload.tileId = &tileId;
+  eventStream.push(event);
 
+  Unit& unit = units.at(unitId);
+  unit.tileId = tileId;
+  unit.moved = true;
+  tiles.at(tileId).unitId = unitId;
+  Unit& carrier = units[carrierId];
+  carrier.moved = true;
+  std::remove(carrier.carriedUnits.begin(), carrier.carriedUnits.end(), unitId);
 }
 
 void wars::Game::destroyUnit(std::string const& unitId)
 {
-  std::cout << "void wars::Game::destroyUnit(std::string const& unitId)" << std::endl;
+  Event event;
+  event.type = EventType::DESTROY;
+  event.destroy.unitId = &unitId;
+  eventStream.push(event);
 
+  Unit unit = units.at(unitId);
+  if(!unit.tileId.empty())
+    tiles.at(unit.tileId).unitId.erase();
+
+  for(std::string const& carriedUnitId : unit.carriedUnits)
+  {
+    destroyUnit(carriedUnitId);
+  }
+
+  units.erase(unitId);
 }
 
 void wars::Game::repairUnit(std::string const& unitId, int newHealth)
 {
-  std::cout << "void wars::Game::repairUnit(std::string const& unitId, int newHealth)" << std::endl;
+  Event event;
+  event.type = EventType::REPAIR;
+  event.repair.unitId = &unitId;
+  event.repair.newHealth = newHealth;
+  eventStream.push(event);
 
+  units.at(unitId).health = newHealth;
 }
 
 void wars::Game::buildUnit(std::string const& tileId, std::string const& unitId)
 {
-  std::cout << "void wars::Game::buildUnit(std::string const& tileId, std::string const& unitId)" << std::endl;
+  Event event;
+  event.type = EventType::BUILD;
+  event.build.tileId = &tileId;
+  event.build.unitId = &unitId;
+  eventStream.push(event);
 
+  tiles.at(tileId).unitId = unitId;
+  units.at(unitId).moved = true;
 }
 
 void wars::Game::regenerateCapturePointsTile(std::string const& tileId, int newCapturePoints)
 {
-  std::cout << "void wars::Game::regenerateCapturePointsTile(std::string const& tileId, int newCapturePoints)" << std::endl;
+  Event event;
+  event.type = EventType::REGENERATE_CAPTURE_POINTS;
+  event.regenerateCapturePoints.tileId = &tileId;
+  event.regenerateCapturePoints.newCapturePoints = newCapturePoints;
+  eventStream.push(event);
+
+  Tile& tile = tiles.at(tileId);
+  tile.capturePoints = newCapturePoints;
+  tile.beingCaptured = false;
 
 }
 
 void wars::Game::produceFundsTile(std::string const& tileId)
 {
-  std::cout << "void wars::Game::produceFundsTile(d::string const& tileId)" << std::endl;
-
+  Event event;
+  event.type = EventType::PRODUCE_FUNDS;
+  event.produceFunds.tileId = &tileId;
+  eventStream.push(event);
 }
 
 void wars::Game::beginTurn(int playerNumber)
 {
-  std::cout << "void wars::Game::beginTurn(int playerNumber)" << std::endl;
+  Event event;
+  event.type = EventType::BEGIN_TURN;
+  event.beginTurn.playerNumber = playerNumber;
+  eventStream.push(event);
 
+  inTurnNumber = playerNumber;
 }
 
 void wars::Game::endTurn(int playerNumber)
 {
-  std::cout << "void wars::Game::endTurn(int playerNumber)" << std::endl;
+  Event event;
+  event.type = EventType::END_TURN;
+  event.endTurn.playerNumber = playerNumber;
+  eventStream.push(event);
 
+  for(auto& item : units)
+  {
+    Unit& unit = item.second;
+    unit.moved = false;
+  }
 }
 
 void wars::Game::turnTimeout(int playerNumber)
 {
-  std::cout << "void wars::Game::turnTimeout(int playerNumber)" << std::endl;
-
+  Event event;
+  event.type = EventType::TURN_TIMEOUT;
+  event.turnTimeout.playerNumber = playerNumber;
+  eventStream.push(event);
 }
 
 void wars::Game::finished(int winnerPlayerNumber)
 {
-  std::cout << "void wars::Game::finished(int winnerPlayerNumber)" << std::endl;
+  Event event;
+  event.type = EventType::FINISHED;
+  event.finished.winnerPlayerNumber = winnerPlayerNumber;
+  eventStream.push(event);
 
+  state = State::FINISHED;
 }
 
 void wars::Game::surrender(int playerNumber)
 {
-  std::cout << "void wars::Game::surrender(int playerNumber)" << std::endl;
+  Event event;
+  event.type = EventType::SURRENDER;
+  event.surrender.playerNumber = playerNumber;
+  eventStream.push(event);
 
+  std::vector<std::string> unitsToDestroy;
+  for(auto& item : units)
+  {
+    Unit& unit = item.second;
+    if(unit.owner == playerNumber)
+    {
+      unitsToDestroy.push_back(unit.id);
+    }
+  }
+
+  for(std::string const& unitId : unitsToDestroy)
+  {
+    destroyUnit(unitId);
+  }
+
+  for(auto& item : tiles)
+  {
+    Tile& tile = item.second;
+    if(tile.owner == playerNumber)
+    {
+      tile.owner = NEUTRAL_PLAYER_NUMBER;
+    }
+  }
 }
 
 std::string wars::Game::updateTileFromJSON(const JSONValue& value)

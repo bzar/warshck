@@ -7,6 +7,7 @@
 #include <unordered_set>
 
 #include "rules.h"
+#include "stream.h"
 
 class JSONValue;
 
@@ -22,9 +23,122 @@ namespace wars
       int y;
     };
     typedef std::vector<Coordinates> Path;
+    static const int NEUTRAL_PLAYER_NUMBER = 0;
+
+    enum class EventType {
+      MOVE, WAIT, ATTACK, COUNTERATTACK, CAPTURE, CAPTURED,
+      DEPLOY, UNDEPLOY, LOAD, UNLOAD, DESTROY, REPAIR, BUILD,
+      REGENERATE_CAPTURE_POINTS, PRODUCE_FUNDS, BEGIN_TURN,
+      END_TURN, TURN_TIMEOUT, FINISHED, SURRENDER
+    };
+
+    struct Event
+    {
+      EventType type;
+      union
+      {
+        struct
+        {
+          std::string const* unitId;
+          std::string const* tileId;
+          Path const* path;
+        } move;
+        struct
+        {
+          std::string const* unitId;
+        } wait;
+        struct
+        {
+          std::string const* attackerId;
+          std::string const* targetId;
+          int damage;
+        } attack;
+        struct
+        {
+          std::string const* attackerId;
+          std::string const* targetId;
+          int damage;
+        } counterattack;
+        struct
+        {
+          std::string const* unitId;
+          std::string const* tileId;
+          int left;
+        } capture;
+        struct
+        {
+          std::string const* unitId;
+          std::string const* tileId;
+        } captured;
+        struct
+        {
+          std::string const* unitId;
+        } deploy;
+        struct
+        {
+          std::string const* unitId;
+        } undeploy;
+        struct
+        {
+          std::string const* unitId;
+          std::string const* carrierId;
+        } load;
+        struct
+        {
+          std::string const* unitId;
+          std::string const* carrierId;
+          std::string const* tileId;
+        } unload;
+        struct
+        {
+          std::string const* unitId;
+        } destroy;
+        struct
+        {
+          std::string const* unitId;
+          int newHealth;
+        } repair;
+        struct
+        {
+          std::string const* tileId;
+          std::string const* unitId;
+        } build;
+        struct
+        {
+          std::string const* tileId;
+          int newCapturePoints;
+        } regenerateCapturePoints;
+        struct
+        {
+          std::string const* tileId;
+        } produceFunds;
+        struct
+        {
+          int playerNumber;
+        } beginTurn;
+        struct
+        {
+          int playerNumber;
+        } endTurn;
+        struct
+        {
+          int playerNumber;
+        } turnTimeout;
+        struct
+        {
+          int winnerPlayerNumber;
+        } finished;
+        struct
+        {
+          int playerNumber;
+        } surrender;
+      };
+    };
 
     Game();
     ~Game();
+
+    Stream<Event> events();
 
     void setRulesFromJSON(JSONValue const& value);
     void setGameDataFromJSON(JSONValue const& value);
@@ -117,6 +231,8 @@ namespace wars
     std::unordered_map<std::string, Tile> tiles;
     std::unordered_map<std::string, Unit> units;
     std::unordered_map<int, Player> players;
+
+    Stream<Event> eventStream;
   };
 }
 #endif // WARS_GAME_H
