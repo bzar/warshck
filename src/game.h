@@ -15,11 +15,45 @@ namespace wars
   class Game
   {
   public:
+    enum class State { PREGAME, IN_PROGRESS, FINISHED };
+    struct Coordinates
+    {
+      int x;
+      int y;
+    };
+    typedef std::vector<Coordinates> Path;
+
     Game();
     ~Game();
 
     void setRulesFromJSON(JSONValue const& value);
     void setGameDataFromJSON(JSONValue const& value);
+    void processEventFromJSON(JSONValue const& value);
+    void processEventsFromJSON(JSONValue const& value);
+
+    // Game event handlers
+    void moveUnit(std::string const& unitId, std::string const& tileId, Path const& path);
+    void waitUnit(std::string const& unitId);
+    void attackUnit(std::string const& attackerId, std::string const& targetId, int damage);
+    void counterattackUnit(std::string const& attackerId, std::string const& targetId, int damage);
+    void captureTile(std::string const& unitId, std::string const& tileId, int left);
+    void capturedTile(std::string const& unitId, std::string const& tileId);
+    void deployUnit(std::string const& unitId);
+    void undeployUnit(std::string const& unitId);
+    void loadUnit(std::string const& unitId, std::string const& carrierId);
+    void unloadUnit(std::string const& unitId, std::string const& carrierId, std::string const& tileId);
+    void destroyUnit(std::string const& unitId);
+    void repairUnit(std::string const& unitId, int newHealth);
+    void buildUnit(std::string const& tileId, std::string const& unitId);
+    void regenerateCapturePointsTile(std::string const& tileId, int newCapturePoints);
+    void produceFundsTile(std::string const& tileId);
+    void beginTurn(int playerNumber);
+    void endTurn(int playerNumber);
+    void turnTimeout(int playerNumber);
+    void finished(int winnerPlayerNumber);
+    void surrender(int playerNumber);
+
+
 
     struct Tile
     {
@@ -60,20 +94,29 @@ namespace wars
     };
 
   private:
+    static std::unordered_map<std::string, State> const STATE_NAMES;
+
+    std::string updateTileFromJSON(JSONValue const& value);
+    std::string updateUnitFromJSON(JSONValue const& value);
+
     std::string gameId;
     std::string authorId;
     std::string name;
     std::string mapId;
-    int state;
-    long turnStart;
+    State state;
+    double turnStart;
     int turnNumber;
     int roundNumber;
     int inTurnNumber;
     bool publicGame;
-    long turnLength;
+    double turnLength;
     std::unordered_set<int> bannedUnits;
 
     Rules rules;
+
+    std::unordered_map<std::string, Tile> tiles;
+    std::unordered_map<std::string, Unit> units;
+    std::unordered_map<int, Player> players;
   };
 }
 #endif // WARS_GAME_H

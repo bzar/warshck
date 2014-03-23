@@ -90,8 +90,10 @@ int main(int argc, char** argv)
   });
 
   //Skeleton::gameEvents = (gameId, events) ->
-  gn.onMethod("gameEvents", [](JSONValue const& params) {
+  gn.onMethod("gameEvents", [&gn, &game](JSONValue const& params) {
     std::cout << "gameEvents" << params.toString() << std::endl;
+    JSONValue events = params.at(1);
+    game.processEventsFromJSON(events);
     return JSONValue::null();
   });
 
