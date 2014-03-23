@@ -255,7 +255,7 @@ const char* LWS_EXT_CALLBACK_STR[] = {
 
 static void queueDataForSending(gamenode* gn, char const* data)
 {
-  printf("Queuing data: %s\n", data);
+  //printf("Queuing data: %s\n", data);
   size_t qdSize = sizeof(queueData);
   struct queueData* qData = calloc(2, qdSize);
   qData->size = strlen(data);
@@ -320,8 +320,8 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
                              enum libwebsocket_callback_reasons reason, void *user, void *in, size_t len)
 {
   gamenode* gn = (gamenode*) libwebsocket_context_user(context);
-  if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
-    printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);
+  //if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
+    //printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);
 
   // Request write for heartbeat if necessary
   time_t now;
@@ -372,7 +372,7 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
         buffer = gn->readBuffer;
       }
 
-      printf("Received: %s\n", buffer);
+      //printf("Received: %s\n", buffer);
       lsio_packet_t* packet = calloc(1, sizeof(lsio_packet_t));
       lsio_packet_init(packet);
 
@@ -454,7 +454,7 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
       while(gn->writeQueue)
       {
         queueData* d = gn->writeQueue;
-        printf("Sending data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
+        //printf("Sending data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
         gn->writeQueue = d->next;
         d->sent += libwebsocket_write(wsi, d->data + LWS_SEND_BUFFER_PRE_PADDING + d->sent, d->size - d->sent, LWS_WRITE_TEXT);
         if(d->sent == d->size)

@@ -530,9 +530,18 @@ void wars::Game::surrender(int playerNumber)
   }
 }
 
+wars::Game::Tile const & wars::Game::getTile(const std::string& tileId) const
+{
+  return tiles.at(tileId);
+}
+
+wars::Game::Unit const& wars::Game::getUnit(const std::string& unitId) const
+{
+  return units.at(unitId);
+}
+
 std::string wars::Game::updateTileFromJSON(const JSONValue& value)
 {
-  //  std::cout << value.toString() << std::endl;
   Tile tile;
   tile.id = value.get("tileId").stringValue();
   tile.x = value.get("x").numberValue();
