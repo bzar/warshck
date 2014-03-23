@@ -21,6 +21,11 @@ namespace
   }
 }
 
+
+kmVec3 const wars::GlhckView::_xBase = {1.5, -0.5, 0};
+kmVec3 const wars::GlhckView::_yBase = {0, -1, 0};
+kmVec3 const wars::GlhckView::_zBase = {0, 0, 1};
+
 void wars::GlhckView::init(int argc, char** argv)
 {
   if (!glfwInit())
@@ -82,6 +87,16 @@ wars::GlhckView::GlhckView() : _window(nullptr), _shouldQuit(false), _units(), _
   }
 
   glhckRenderClearColorb(64, 64, 64, 255);
+
+  _camera = glhckCameraNew();
+  glhckCameraProjection(_camera, GLHCK_PROJECTION_PERSPECTIVE);
+  glhckObjectPositionf(glhckCameraGetObject(_camera), 5, -25, 15);
+  glhckObjectRotatef(glhckCameraGetObject(_camera), 0, 0,-90);
+  glhckObjectTargetf(glhckCameraGetObject(_camera),10, 0, 0);
+
+  glhckCameraRange(_camera, 0.1f, 100.0f);
+  glhckCameraFov(_camera, 45);
+  glhckCameraUpdate(_camera);
 }
 
 wars::GlhckView::~GlhckView()
@@ -223,6 +238,19 @@ bool wars::GlhckView::handle()
 {
   glfwPollEvents();
 
+  glhckCameraUpdate(_camera);
+
+  for(auto& item : _units)
+  {
+    glhckObjectDraw(item.second.obj);
+  }
+
+  for(auto& item : _tiles)
+  {
+    glhckObjectDraw(item.second.obj);
+  }
+
+  glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT | GLHCK_COLOR_BUFFER_BIT);
   glhckRender();
   glfwSwapBuffers(_window);
 
@@ -232,6 +260,17 @@ bool wars::GlhckView::handle()
 void wars::GlhckView::quit()
 {
   _shouldQuit = true;
+}
+
+kmVec3 wars::GlhckView::hexToRect(const kmVec3& v)
+{
+  kmVec3 result, r;
+  kmVec3Scale(&result, &_xBase, v.x);
+  kmVec3Scale(&r, &_yBase, v.y);
+  kmVec3Add(&result, &result, &r);
+  kmVec3Scale(&r, &_zBase, v.z);
+  kmVec3Add(&result, &result, &r);
+  return result;
 }
 
 void wars::GlhckView::clear()
@@ -259,12 +298,40 @@ void wars::GlhckView::initializeFromGame()
 
   for(auto item : tiles)
   {
-
+    _tiles[item.first] = {item.first, createTileObject(item.second)};
   }
 
   for(auto item : units)
   {
-
+    _units[item.first] = {item.first, createUnitObject(item.second)};
   }
 
+}
+
+glhckObject* wars::GlhckView::createUnitObject(const wars::Game::Unit& unit)
+{
+  glhckObject* o = glhckCubeNew(0.5);
+  if(!unit.tileId.empty())
+  {
+    Game::Tile const& tile = _game->getTile(unit.tileId);
+    kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0.0f});
+    glhckObjectPositionf(o, pos.x, pos.y, pos.z);
+  }
+  glhckMaterial* m = glhckMaterialNew(nullptr);
+  glhckMaterialDiffuseb(m, 255, 0, 0, 255);
+  glhckObjectMaterial(o, m);
+  glhckMaterialFree(m);
+  return o;
+}
+
+glhckObject* wars::GlhckView::createTileObject(const wars::Game::Tile& tile)
+{
+  glhckObject* o = glhckCubeNew(0.5);
+  kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), -1.0f});
+  glhckObjectPositionf(o, pos.x, pos.y, pos.z);
+  glhckMaterial* m = glhckMaterialNew(nullptr);
+  glhckMaterialDiffuseb(m, 0, 255, 0, 255);
+  glhckObjectMaterial(o, m);
+  glhckMaterialFree(m);
+  return o;
 }

@@ -35,11 +35,21 @@ namespace wars
       glhckObject* obj;
     };
 
+    static kmVec3 const _xBase;
+    static kmVec3 const _yBase;
+    static kmVec3 const _zBase;
+    static kmVec3 hexToRect(kmVec3 const& v);
+
     void clear();
     void initializeFromGame();
 
+    glhckObject* createUnitObject(Game::Unit const& unit);
+    glhckObject* createTileObject(Game::Tile const& tile);
+
     Game* _game;
     GLFWwindow* _window;
+    glhckCamera* _camera;
+
 
     std::unordered_map<std::string, Unit> _units;
     std::unordered_map<std::string, Tile> _tiles;
