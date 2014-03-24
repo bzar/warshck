@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="1024"
+   height="1024"
+   viewBox="0 0 1024 1024"
+   version="1.1"
+   id="svg3086"
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="grass-hextile.svg">
+  <metadata
+     id="metadata3110">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs3108" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1180"
+     id="namedview3106"
+     showgrid="false"
+     inkscape:zoom="0.97167969"
+     inkscape:cx="548.79541"
+     inkscape:cy="554.50289"
+     inkscape:window-x="1918"
+     inkscape:window-y="-3"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3086" />
+  <desc
+     id="desc3088">'grass-hextile.blend', Cube, (Blender 2.70 (sub 0))</desc>
+  <polygon
+     stroke="black"
+     stroke-width="1"
+     fill="rgb(1, 85, 0)"
+     fill-opacity="0.25"
+     points="276.633,22.933 276.634,237.846 739.076,237.846 739.076,22.933 "
+     id="polygon3090"
+     style="fill:#784421;stroke:none;fill-opacity:1" />
+  <polygon
+     stroke="black"
+     stroke-width="1"
+     fill="rgb(1, 85, 0)"
+     fill-opacity="0.25"
+     points="722.639,1014.552 1016.240,637.065 731.028,259.578 294.820,259.578 9.608,637.065 303.209,1014.552 "
+     id="polygon3098"
+     style="stroke-width:12.792;stroke-miterlimit:4;stroke-dasharray:none;fill:#008000;fill-opacity:1;stroke:#000000;stroke-opacity:1" />
+  <polygon
+     stroke="black"
+     stroke-width="1"
+     fill="rgb(1, 85, 0)"
+     fill-opacity="0.25"
+     points="276.633,22.933 276.634,237.846 739.076,237.846 739.076,22.933 "
+     id="polygon3104"
+     style="fill:#552200;opacity:0;fill-opacity:1;stroke:none" />
+</svg>

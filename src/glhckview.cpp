@@ -22,8 +22,8 @@ namespace
 }
 
 
-kmVec3 const wars::GlhckView::_xBase = {1.5, -0.5, 0};
-kmVec3 const wars::GlhckView::_yBase = {0, -1, 0};
+kmVec3 const wars::GlhckView::_xBase = {4.2, -2.2, 0};
+kmVec3 const wars::GlhckView::_yBase = {0, -4.4, 0};
 kmVec3 const wars::GlhckView::_zBase = {0, 0, 1};
 
 void wars::GlhckView::init(int argc, char** argv)
@@ -90,11 +90,11 @@ wars::GlhckView::GlhckView() : _window(nullptr), _shouldQuit(false), _units(), _
 
   _camera = glhckCameraNew();
   glhckCameraProjection(_camera, GLHCK_PROJECTION_PERSPECTIVE);
-  glhckObjectPositionf(glhckCameraGetObject(_camera), 5, -25, 15);
-  glhckObjectRotatef(glhckCameraGetObject(_camera), 0, 0,-90);
-  glhckObjectTargetf(glhckCameraGetObject(_camera),10, 0, 0);
+  glhckObjectPositionf(glhckCameraGetObject(_camera), 30, -110, 50);
+//  glhckObjectRotatef(glhckCameraGetObject(_camera), 0, 0,-90);
+  glhckObjectTargetf(glhckCameraGetObject(_camera), 30, -20, 0);
 
-  glhckCameraRange(_camera, 0.1f, 100.0f);
+  glhckCameraRange(_camera, 0.1f, 1000.0f);
   glhckCameraFov(_camera, 45);
   glhckCameraUpdate(_camera);
 }
@@ -120,6 +120,9 @@ void wars::GlhckView::setGame(Game* game)
         wars::Game::Unit const& unit = _game->getUnit(*e.move.unitId);
         wars::Game::Tile const& next = _game->getTile(*e.move.tileId);
         wars::Game::Tile const& prev = _game->getTile(unit.tileId);
+        glhckObject* o = _units.at(unit.id).obj;
+        kmVec3 pos = hexToRect({static_cast<kmScalar>(next.x), static_cast<kmScalar>(next.y), 0.5f});
+        glhckObjectPositionf(o, pos.x, pos.y, pos.z);
         break;
       }
       case wars::Game::EventType::WAIT:
@@ -169,6 +172,9 @@ void wars::GlhckView::setGame(Game* game)
         wars::Game::Unit const& unit = _game->getUnit(*e.load.unitId);
         wars::Game::Unit const& carrier = _game->getUnit(*e.load.carrierId);
         wars::Game::Tile const& curr = _game->getTile(unit.tileId);
+        glhckObject* o = _units.at(unit.id).obj;
+        _units.erase(unit.id);
+        glhckObjectFree(o);
         break;
       }
       case wars::Game::EventType::UNLOAD:
@@ -176,12 +182,19 @@ void wars::GlhckView::setGame(Game* game)
         wars::Game::Unit const& unit = _game->getUnit(*e.unload.unitId);
         wars::Game::Unit const& carrier = _game->getUnit(*e.unload.carrierId);
         wars::Game::Tile const& next = _game->getTile(*e.unload.tileId);
+        glhckObject* unitObject = createUnitObject(unit);
+        _units[unit.id] = {unit.id, unitObject};
+        kmVec3 pos = hexToRect({static_cast<kmScalar>(next.x), static_cast<kmScalar>(next.y), 0.5f});
+        glhckObjectPositionf(unitObject, pos.x, pos.y, pos.z);
         break;
       }
       case wars::Game::EventType::DESTROY:
       {
         wars::Game::Unit const& unit = _game->getUnit(*e.destroy.unitId);
         wars::Game::Tile const& curr = _game->getTile(unit.tileId);
+        glhckObject* o = _units.at(unit.id).obj;
+        _units.erase(unit.id);
+        glhckObjectFree(o);
         break;
       }
       case wars::Game::EventType::REPAIR:
@@ -194,6 +207,9 @@ void wars::GlhckView::setGame(Game* game)
       {
         wars::Game::Unit const& unit = _game->getUnit(*e.build.unitId);
         wars::Game::Tile const& tile = _game->getTile(*e.build.tileId);
+        glhckObject* unitObject = createUnitObject(unit);
+        if(unitObject != nullptr)
+          _units[unit.id] = {unit.id, unitObject};
         break;
       }
       case wars::Game::EventType::REGENERATE_CAPTURE_POINTS:
@@ -303,7 +319,11 @@ void wars::GlhckView::initializeFromGame()
 
   for(auto item : units)
   {
-    _units[item.first] = {item.first, createUnitObject(item.second)};
+    if(!item.second.tileId.empty())
+    {
+      glhckObject* unitObject = createUnitObject(item.second);
+      _units[item.first] = {item.first, unitObject};
+    }
   }
 
 }
@@ -311,27 +331,52 @@ void wars::GlhckView::initializeFromGame()
 glhckObject* wars::GlhckView::createUnitObject(const wars::Game::Unit& unit)
 {
   glhckObject* o = glhckCubeNew(0.5);
+
   if(!unit.tileId.empty())
   {
     Game::Tile const& tile = _game->getTile(unit.tileId);
-    kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0.0f});
+    kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0.5f});
     glhckObjectPositionf(o, pos.x, pos.y, pos.z);
   }
   glhckMaterial* m = glhckMaterialNew(nullptr);
-  glhckMaterialDiffuseb(m, 255, 0, 0, 255);
+  glhckColorb colors[] = {
+    {127, 127, 127, 255},
+    {214,  61,  56, 255},
+    { 56,  67, 214, 255},
+    {217, 213,  43, 255},
+    { 99, 173, 208, 255},
+    {230,   0, 211, 255},
+    {230, 108,   0, 255},
+    {177, 108,  53, 255},
+    {173, 230,   0, 255}
+  };
+  glhckMaterialDiffuse(m, &colors[unit.owner]);
   glhckObjectMaterial(o, m);
   glhckMaterialFree(m);
+  glhckObjectDrawOBB(o, 1);
   return o;
 }
 
 glhckObject* wars::GlhckView::createTileObject(const wars::Game::Tile& tile)
 {
-  glhckObject* o = glhckCubeNew(0.5);
-  kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), -1.0f});
+  TerrainType const& terrain = _game->getRules().terrainTypes.at(tile.type);
+  std::string const files[] = {
+    "models/grass-hextile.glhckm", // road
+    "models/grass-hextile.glhckm", // plains
+    "models/grass-hextile.glhckm", // forest
+    "models/grass-hextile.glhckm", // mountains
+    "models/water-hextile.glhckm", // water
+    "models/concrete-hextile.glhckm", // city
+    "models/concrete-hextile.glhckm", // base
+    "models/concrete-hextile.glhckm", // fort
+    "models/concrete-hextile.glhckm", // airport
+    "models/concrete-hextile.glhckm", // port
+    "models/beach-hextile.glhckm", // beach
+    "models/water-hextile.glhckm", // bridge
+    "models/concrete-hextile.glhckm" // hq
+  };
+  glhckObject* o = glhckModelNew(files[terrain.id].data(), 1.0, glhckImportDefaultModelParameters());
+  kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0});
   glhckObjectPositionf(o, pos.x, pos.y, pos.z);
-  glhckMaterial* m = glhckMaterialNew(nullptr);
-  glhckMaterialDiffuseb(m, 0, 255, 0, 255);
-  glhckObjectMaterial(o, m);
-  glhckMaterialFree(m);
   return o;
 }

@@ -24,3 +24,5 @@ list(APPEND CMAKE_CXX_FLAGS -std=c++11)
 add_executable(warshck ${SOURCES})
 target_link_libraries(warshck glfw glhck libsocketio websockets json ${CURL_LIBRARIES} ${GLFW_LIBRARIES})
 
+install(TARGETS warshck DESTINATION .)
+install(DIRECTORY assets/ DESTINATION .)
