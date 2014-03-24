@@ -121,7 +121,7 @@ void wars::GlhckView::setGame(Game* game)
         wars::Game::Tile const& next = _game->getTile(*e.move.tileId);
         wars::Game::Tile const& prev = _game->getTile(unit.tileId);
         glhckObject* o = _units.at(unit.id).obj;
-        kmVec3 pos = hexToRect({static_cast<kmScalar>(next.x), static_cast<kmScalar>(next.y), 0.5f});
+        kmVec3 pos = hexToRect({static_cast<kmScalar>(next.x), static_cast<kmScalar>(next.y), 1});
         glhckObjectPositionf(o, pos.x, pos.y, pos.z);
         break;
       }
@@ -184,7 +184,7 @@ void wars::GlhckView::setGame(Game* game)
         wars::Game::Tile const& next = _game->getTile(*e.unload.tileId);
         glhckObject* unitObject = createUnitObject(unit);
         _units[unit.id] = {unit.id, unitObject};
-        kmVec3 pos = hexToRect({static_cast<kmScalar>(next.x), static_cast<kmScalar>(next.y), 0.5f});
+        kmVec3 pos = hexToRect({static_cast<kmScalar>(next.x), static_cast<kmScalar>(next.y), 1});
         glhckObjectPositionf(unitObject, pos.x, pos.y, pos.z);
         break;
       }
@@ -330,15 +330,39 @@ void wars::GlhckView::initializeFromGame()
 
 glhckObject* wars::GlhckView::createUnitObject(const wars::Game::Unit& unit)
 {
-  glhckObject* o = glhckCubeNew(0.5);
+  glhckObject* o = glhckCubeNew(1.0);
 
   if(!unit.tileId.empty())
   {
     Game::Tile const& tile = _game->getTile(unit.tileId);
-    kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0.5f});
+    kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 1.0f});
     glhckObjectPositionf(o, pos.x, pos.y, pos.z);
   }
-  glhckMaterial* m = glhckMaterialNew(nullptr);
+  std::string const files[] = {
+    "textures/inf_placeholder.png",
+    "textures/at_placeholder.png",
+    "textures/sc_placeholder.png",
+    "textures/lt_placeholder.png",
+    "textures/mt_placeholder.png",
+    "textures/ht_placeholder.png",
+    "textures/la_placeholder.png",
+    "textures/ma_placeholder.png",
+    "textures/ha_placeholder.png",
+    "textures/aa_placeholder.png",
+    "textures/sm_placeholder.png",
+    "textures/co_placeholder.png",
+    "textures/in_placeholder.png",
+    "textures/bo_placeholder.png",
+    "textures/ap_placeholder.png",
+    "textures/tc_placeholder.png",
+    "textures/cs_placeholder.png",
+    "textures/gb_placeholder.png",
+    "textures/ab_placeholder.png",
+    "textures/cr_placeholder.png"
+  };
+  glhckTexture* t = glhckTextureNewFromFile(files[unit.type].data(), glhckImportDefaultImageParameters(), glhckTextureDefaultSpriteParameters());
+  glhckMaterial* m = glhckMaterialNew(t);
+  glhckTextureFree(t);
   glhckColorb colors[] = {
     {127, 127, 127, 255},
     {214,  61,  56, 255},
