@@ -126,7 +126,7 @@ int main(int argc, char** argv)
   logger.setGame(&game);
 
   wars::GlhckView::init(argc, argv);
-  wars::GlhckView view;
+  wars::GlhckView view(&gn);
   view.setGame(&game);
 
   while(running)

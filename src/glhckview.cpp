@@ -8,17 +8,6 @@ namespace
   {
     std::cerr << "GLFW ERROR: " << message << std::endl;
   }
-
-  void windowCloseCallback(GLFWwindow* window)
-  {
-    wars::GlhckView* view = static_cast<wars::GlhckView*>(glfwGetWindowUserPointer(window));
-    view->quit();
-  }
-
-  void windowSizeCallback(GLFWwindow *window, int width, int height)
-  {
-    glhckDisplayResize(width, height);
-  }
 }
 
 
@@ -61,21 +50,17 @@ void wars::GlhckView::term()
   glfwTerminate();
 }
 
-wars::GlhckView::GlhckView() : _window(nullptr), _shouldQuit(false), _units(), _tiles()
+wars::GlhckView::GlhckView(Gamenode* gn) : _gn(gn), _window(nullptr), _shouldQuit(false), _units(), _tiles()
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
+  _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
 
   if(!_window)
   {
     throw std::runtime_error("Failed to create a GLFW window");
   }
 
-  glfwSetWindowUserPointer(_window, this);
-
   glfwMakeContextCurrent(_window);
-
-  glfwSetWindowCloseCallback(_window, windowCloseCallback);
-  glfwSetWindowSizeCallback(_window, windowSizeCallback);
 
   glfwSwapInterval(1);
 
@@ -91,8 +76,11 @@ wars::GlhckView::GlhckView() : _window(nullptr), _shouldQuit(false), _units(), _
   _camera = glhckCameraNew();
   glhckCameraProjection(_camera, GLHCK_PROJECTION_PERSPECTIVE);
   glhckObjectPositionf(glhckCameraGetObject(_camera), 30, -110, 50);
-//  glhckObjectRotatef(glhckCameraGetObject(_camera), 0, 0,-90);
-  glhckObjectTargetf(glhckCameraGetObject(_camera), 30, -20, 0);
+  glhckObjectRotationf(glhckCameraGetObject(_camera), 0, 0, 0);
+
+  kmVec3 target = {0, 1, -1};
+  kmVec3Add(&target, &target, glhckObjectGetTarget(glhckCameraGetObject(_camera)));
+  glhckObjectTarget(glhckCameraGetObject(_camera), &target);
 
   glhckCameraRange(_camera, 0.1f, 1000.0f);
   glhckCameraFov(_camera, 45);
@@ -101,6 +89,7 @@ wars::GlhckView::GlhckView() : _window(nullptr), _shouldQuit(false), _units(), _
 
 wars::GlhckView::~GlhckView()
 {
+  glfwhckEventQueueFree(_glfwEvents);
 }
 
 void wars::GlhckView::setGame(Game* game)
@@ -254,6 +243,8 @@ bool wars::GlhckView::handle()
 {
   glfwPollEvents();
 
+  handleInput();
+
   glhckCameraUpdate(_camera);
 
   for(auto& item : _units)
@@ -326,6 +317,118 @@ void wars::GlhckView::initializeFromGame()
     }
   }
 
+}
+
+void wars::GlhckView::handleInput()
+{
+  while(!glfwhckEventQueueEmpty(_glfwEvents))
+  {
+    const glfwhckEvent* e = glfwhckEventQueuePop(_glfwEvents);
+    switch(e->type)
+    {
+      case GLFWHCK_EVENT_KEYBOARD_KEY:
+      {
+        switch(e->keyboardKey.key)
+        {
+          case GLFW_KEY_LEFT:
+          case GLFW_KEY_A:
+          {
+            _inputState.camera.left = e->keyboardKey.action != GLFW_RELEASE;
+            break;
+          }
+          case GLFW_KEY_RIGHT:
+          case GLFW_KEY_D:
+          {
+            _inputState.camera.right = e->keyboardKey.action != GLFW_RELEASE;
+            break;
+          }
+          case GLFW_KEY_UP:
+          case GLFW_KEY_W:
+          {
+            _inputState.camera.forward = e->keyboardKey.action != GLFW_RELEASE;
+            break;
+          }
+          case GLFW_KEY_DOWN:
+          case GLFW_KEY_S:
+          {
+            _inputState.camera.backward = e->keyboardKey.action != GLFW_RELEASE;
+            break;
+
+          }
+          case GLFW_KEY_R:
+          {
+            _inputState.camera.zoomIn = e->keyboardKey.action != GLFW_RELEASE;
+            break;
+          }
+          case GLFW_KEY_F:
+          {
+            _inputState.camera.zoomOut = e->keyboardKey.action != GLFW_RELEASE;
+            break;
+          }
+          case GLFW_KEY_ESCAPE:
+          {
+            quit();
+            break;
+          }
+        }
+        break;
+      }
+      case GLFWHCK_EVENT_WINDOW_CLOSE:
+      {
+        quit();
+        break;
+      }
+      case GLFWHCK_EVENT_WINDOW_RESIZE:
+      {
+        glhckDisplayResize(e->windowResize.width, e->windowResize.height);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  if(_inputState.camera.left)
+  {
+    glhckObjectMovef(glhckCameraGetObject(_camera), -0.5, 0, 0);
+  }
+
+  if(_inputState.camera.right)
+  {
+    glhckObjectMovef(glhckCameraGetObject(_camera), 0.5, 0, 0);
+  }
+
+  if(_inputState.camera.forward)
+  {
+    glhckObjectMovef(glhckCameraGetObject(_camera), 0, 0.5, 0);
+  }
+  if(_inputState.camera.backward)
+  {
+    glhckObjectMovef(glhckCameraGetObject(_camera), 0, -0.5, 0);
+  }
+
+  if(_inputState.camera.zoomIn
+     && glhckObjectGetPosition(glhckCameraGetObject(_camera))->z > 10)
+  {
+        glhckObjectMovef(glhckCameraGetObject(_camera), 0, 0.5, -0.5);
+  }
+
+  if(_inputState.camera.zoomOut)
+  {
+    glhckObjectMovef(glhckCameraGetObject(_camera), 0, -0.5, 0.5);
+  }
+
+  if(_inputState.camera.left
+     || _inputState.camera.right
+     || _inputState.camera.forward
+     || _inputState.camera.backward
+     || _inputState.camera.zoomIn
+     || _inputState.camera.zoomOut)
+  {
+    kmVec3 target = {0, 1, -1};
+    kmVec3Add(&target, &target, glhckObjectGetTarget(glhckCameraGetObject(_camera)));
+    glhckObjectTarget(glhckCameraGetObject(_camera), &target);
+  }
 }
 
 glhckObject* wars::GlhckView::createUnitObject(const wars::Game::Unit& unit)

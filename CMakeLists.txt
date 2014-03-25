@@ -13,6 +13,7 @@ include_directories(
   ${CURL_INCLUDE_DIR}
   ${LIBWEBSOCKETS_INCLUDE_DIRS}
   ${GLFW_SOURCE_DIR}/include
+  ${glfwhck_SOURCE_DIR}/include
   ${glhck_SOURCE_DIR}/include
   ${kazmath_SOURCE_DIR}/src
   lib/libsocketio/include
@@ -22,7 +23,7 @@ include_directories(
 file(GLOB SOURCES src/*.cpp src/*.c)
 list(APPEND CMAKE_CXX_FLAGS -std=c++11)
 add_executable(warshck ${SOURCES})
-target_link_libraries(warshck glfw glhck libsocketio websockets json ${CURL_LIBRARIES} ${GLFW_LIBRARIES})
+target_link_libraries(warshck glfw glfwhck glhck libsocketio websockets json ${CURL_LIBRARIES} ${GLFW_LIBRARIES})
 
 install(TARGETS warshck DESTINATION .)
 install(DIRECTORY assets/ DESTINATION .)

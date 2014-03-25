@@ -1,5 +1,6 @@
 add_subdirectory(glhck)
 add_subdirectory(libwebsockets)
+add_subdirectory(glfwhck)
 
 
 include_directories(
