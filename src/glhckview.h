@@ -47,12 +47,21 @@ namespace wars
         bool zoomIn;
         bool zoomOut;
       } camera;
+
+      kmRay3 mouseRay;
+      struct
+      {
+        int x;
+        int y;
+      } hexCursor;
+
     };
 
     static kmVec3 const _xBase;
     static kmVec3 const _yBase;
     static kmVec3 const _zBase;
     static kmVec3 hexToRect(kmVec3 const& v);
+    static kmVec3 rectToHex(kmVec3 const& v);
 
     void clear();
     void initializeFromGame();

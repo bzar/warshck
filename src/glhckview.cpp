@@ -77,13 +77,13 @@ wars::GlhckView::GlhckView(Gamenode* gn) : _gn(gn), _window(nullptr), _shouldQui
   glhckCameraProjection(_camera, GLHCK_PROJECTION_PERSPECTIVE);
   glhckObjectPositionf(glhckCameraGetObject(_camera), 30, -110, 50);
   glhckObjectRotationf(glhckCameraGetObject(_camera), 0, 0, 0);
-
-  kmVec3 target = {0, 1, -1};
-  kmVec3Add(&target, &target, glhckObjectGetTarget(glhckCameraGetObject(_camera)));
-  glhckObjectTarget(glhckCameraGetObject(_camera), &target);
-
   glhckCameraRange(_camera, 0.1f, 1000.0f);
   glhckCameraFov(_camera, 45);
+
+  kmVec3 target = {0, 1, -1};
+  kmVec3Add(&target, &target, glhckObjectGetPosition(glhckCameraGetObject(_camera)));
+  glhckObjectTarget(glhckCameraGetObject(_camera), &target);
+
   glhckCameraUpdate(_camera);
 }
 
@@ -254,6 +254,10 @@ bool wars::GlhckView::handle()
 
   for(auto& item : _tiles)
   {
+    Game::Tile const& tile = _game->getTile(item.first);
+    bool selected = tile.x == _inputState.hexCursor.x
+        && tile.y == _inputState.hexCursor.y;
+    glhckObjectDrawAABB(item.second.obj, selected);
     glhckObjectDraw(item.second.obj);
   }
 
@@ -277,6 +281,23 @@ kmVec3 wars::GlhckView::hexToRect(const kmVec3& v)
   kmVec3Add(&result, &result, &r);
   kmVec3Scale(&r, &_zBase, v.z);
   kmVec3Add(&result, &result, &r);
+  return result;
+}
+
+kmVec3 wars::GlhckView::rectToHex(const kmVec3& v)
+{
+
+  kmVec3 result;
+  kmMat4 mat = {
+    _xBase.x, _xBase.y, _xBase.z, 0,
+    _yBase.x, _yBase.y, _yBase.z, 0,
+    _zBase.x, _zBase.y, _zBase.z, 0,
+    0, 0, 0, 1
+  };
+
+  kmMat4Inverse(&mat, &mat);
+
+  kmVec3Transform(&result, &v, &mat);
   return result;
 }
 
@@ -326,6 +347,15 @@ void wars::GlhckView::handleInput()
     const glfwhckEvent* e = glfwhckEventQueuePop(_glfwEvents);
     switch(e->type)
     {
+      case GLFWHCK_EVENT_MOUSE_POSITION:
+      {
+        int w, h;
+        glfwGetWindowSize(_window, &w, &h);
+        glhckCameraCastRayFromPointf(_camera, &_inputState.mouseRay,
+                                     e->mousePosition.x/w,
+                                     1.0f - e->mousePosition.y/h);
+        break;
+      }
       case GLFWHCK_EVENT_KEYBOARD_KEY:
       {
         switch(e->keyboardKey.key)
@@ -426,8 +456,19 @@ void wars::GlhckView::handleInput()
      || _inputState.camera.zoomOut)
   {
     kmVec3 target = {0, 1, -1};
-    kmVec3Add(&target, &target, glhckObjectGetTarget(glhckCameraGetObject(_camera)));
+    kmVec3Add(&target, &target, glhckObjectGetPosition(glhckCameraGetObject(_camera)));
     glhckObjectTarget(glhckCameraGetObject(_camera), &target);
+  }
+
+  if(_inputState.mouseRay.dir.z)
+  {
+    kmVec3 pointer;
+    kmPlane plane = {0, 0, 1, 0};
+    kmRay3IntersectPlane(&pointer, &_inputState.mouseRay, &plane);
+
+    pointer = rectToHex(pointer);
+    _inputState.hexCursor.x = static_cast<int>(round(pointer.x));
+    _inputState.hexCursor.y = static_cast<int>(round(pointer.y));
   }
 }
 
