@@ -34,7 +34,8 @@ namespace wars
     struct Tile
     {
       std::string id;
-      glhckObject* obj;
+      glhckObject* hex;
+      glhckObject* prop;
     };
     struct InputState
     {
@@ -68,7 +69,8 @@ namespace wars
     void handleInput();
 
     glhckObject* createUnitObject(Game::Unit const& unit);
-    glhckObject* createTileObject(Game::Tile const& tile);
+    glhckObject* createTileHex(Game::Tile const& tile);
+    glhckObject* createTileProp(Game::Tile const& tile);
 
     Gamenode* _gn;
     Game* _game;

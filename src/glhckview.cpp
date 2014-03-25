@@ -257,8 +257,10 @@ bool wars::GlhckView::handle()
     Game::Tile const& tile = _game->getTile(item.first);
     bool selected = tile.x == _inputState.hexCursor.x
         && tile.y == _inputState.hexCursor.y;
-    glhckObjectDrawAABB(item.second.obj, selected);
-    glhckObjectDraw(item.second.obj);
+    glhckObjectDrawAABB(item.second.hex, selected);
+    glhckObjectDraw(item.second.hex);
+    if(item.second.prop != nullptr)
+      glhckObjectDraw(item.second.prop);
   }
 
   glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT | GLHCK_COLOR_BUFFER_BIT);
@@ -311,7 +313,9 @@ void wars::GlhckView::clear()
 
   for(auto& item : _tiles)
   {
-    glhckObjectFree(item.second.obj);
+    glhckObjectFree(item.second.hex);
+    if(item.second.prop != nullptr)
+      glhckObjectFree(item.second.prop);
   }
   _tiles.clear();
 }
@@ -326,7 +330,11 @@ void wars::GlhckView::initializeFromGame()
 
   for(auto item : tiles)
   {
-    _tiles[item.first] = {item.first, createTileObject(item.second)};
+    _tiles[item.first] = {
+      item.first,
+      createTileHex(item.second),
+      createTileProp(item.second)
+    };
   }
 
   for(auto item : units)
@@ -525,7 +533,7 @@ glhckObject* wars::GlhckView::createUnitObject(const wars::Game::Unit& unit)
   return o;
 }
 
-glhckObject* wars::GlhckView::createTileObject(const wars::Game::Tile& tile)
+glhckObject* wars::GlhckView::createTileHex(const wars::Game::Tile& tile)
 {
   TerrainType const& terrain = _game->getRules().terrainTypes.at(tile.type);
   std::string const files[] = {
@@ -547,4 +555,33 @@ glhckObject* wars::GlhckView::createTileObject(const wars::Game::Tile& tile)
   kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0});
   glhckObjectPositionf(o, pos.x, pos.y, pos.z);
   return o;
+}
+
+glhckObject*wars::GlhckView::createTileProp(const wars::Game::Tile& tile)
+{
+  TerrainType const& terrain = _game->getRules().terrainTypes.at(tile.type);
+  std::string const files[] = {
+    "models/road.glhckm", // road
+    "", // plains
+    "models/forest.glhckm", // forest
+    "", // mountains
+    "", // water
+    "models/city-hextile.glhckm", // city
+    "", // base
+    "", // fort
+    "", // airport
+    "", // port
+    "", // beach
+    "", // bridge
+    "" // hq
+  };
+  if(files[terrain.id].empty())
+    return nullptr;
+
+  glhckObject* o = glhckModelNew(files[terrain.id].data(), 1.0, glhckImportDefaultModelParameters());
+  kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0});
+  glhckObjectPositionf(o, pos.x, pos.y, pos.z);
+  return o;
+
+
 }

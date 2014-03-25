@@ -1,6 +1,7 @@
 #include "libwebsockets.h"
 #include "gamenodepp.h"
 #include <iostream>
+#include <sstream>
 #include <cstdlib>
 
 #include "game.h"
@@ -11,15 +12,17 @@ int main(int argc, char** argv)
 {
   if(argc < 2)
   {
-    std::cerr << "Usage: warshck <gameId>" << std::endl;
+    std::cerr << "Usage: warshck <server> <port> <gameId> <username> <password>" << std::endl;
     return EXIT_FAILURE;
   }
 
-  std::string const gameId = argv[1];
-  std::string const user = argv[2];
-  std::string const pass = argv[3];
+  std::string const server = argv[1];
+  std::string const port = argv[2];
+  std::string const gameId = argv[3];
+  std::string const user = argv[4];
+  std::string const pass = argv[5];
 
-  //lws_set_log_level(LLL_DEBUG, nullptr);
+  //lws_set_log_level(LLL_DEBUG | LLL_PARSER | LLL_HEADER | LLL_CLIENT, nullptr);
   bool running = true;
   Gamenode gn;
   wars::Game game;
@@ -116,7 +119,9 @@ int main(int argc, char** argv)
     return JSONValue::null();
   });
 
-  if(!gn.connect("localhost", 8888, "/", "localhost", "localhost"))
+  int portInt;
+  std::istringstream(port) >> portInt;
+  if(!gn.connect(server, portInt, "/", server, server))
   {
     std::cerr << "Error creating gamenode connection" << std::endl;
     return EXIT_FAILURE;
