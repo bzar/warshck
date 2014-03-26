@@ -27,3 +27,4 @@ target_link_libraries(warshck glfw glfwhck glhck libsocketio websockets json ${C
 
 install(TARGETS warshck DESTINATION .)
 install(DIRECTORY assets/ DESTINATION .)
+install(DIRECTORY config/ DESTINATION config)

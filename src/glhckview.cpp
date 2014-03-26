@@ -1,6 +1,7 @@
 #include "glhckview.h"
 #include <iostream>
 #include <stdexcept>
+#include <cmath>
 
 namespace
 {
@@ -10,10 +11,6 @@ namespace
   }
 }
 
-
-kmVec3 const wars::GlhckView::_xBase = {4.2, -2.2, 0};
-kmVec3 const wars::GlhckView::_yBase = {0, -4.4, 0};
-kmVec3 const wars::GlhckView::_zBase = {0, 0, 1};
 
 void wars::GlhckView::init(int argc, char** argv)
 {
@@ -54,7 +51,9 @@ wars::GlhckView::GlhckView(Gamenode* gn) : _gn(gn), _window(nullptr), _shouldQui
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
-
+  /*_inputState.camera = {false, false, false, false, false, false};
+  _inputState.mouseRay = {{0,0,0}, {0,0,0}};
+  _inputState.hexCursor = {0, 0};*/
   if(!_window)
   {
     throw std::runtime_error("Failed to create a GLFW window");
@@ -85,6 +84,8 @@ wars::GlhckView::GlhckView(Gamenode* gn) : _gn(gn), _window(nullptr), _shouldQui
   glhckObjectTarget(glhckCameraGetObject(_camera), &target);
 
   glhckCameraUpdate(_camera);
+
+  loadTheme("config/theme.json");
 }
 
 wars::GlhckView::~GlhckView()
@@ -278,10 +279,10 @@ void wars::GlhckView::quit()
 kmVec3 wars::GlhckView::hexToRect(const kmVec3& v)
 {
   kmVec3 result, r;
-  kmVec3Scale(&result, &_xBase, v.x);
-  kmVec3Scale(&r, &_yBase, v.y);
+  kmVec3Scale(&result, &_theme.base.x, v.x);
+  kmVec3Scale(&r, &_theme.base.y, v.y);
   kmVec3Add(&result, &result, &r);
-  kmVec3Scale(&r, &_zBase, v.z);
+  kmVec3Scale(&r, &_theme.base.z, v.z);
   kmVec3Add(&result, &result, &r);
   return result;
 }
@@ -291,9 +292,9 @@ kmVec3 wars::GlhckView::rectToHex(const kmVec3& v)
 
   kmVec3 result;
   kmMat4 mat = {
-    _xBase.x, _xBase.y, _xBase.z, 0,
-    _yBase.x, _yBase.y, _yBase.z, 0,
-    _zBase.x, _zBase.y, _zBase.z, 0,
+    _theme.base.x.x, _theme.base.x.y, _theme.base.x.z, 0,
+    _theme.base.y.x, _theme.base.y.y, _theme.base.y.z, 0,
+    _theme.base.z.x, _theme.base.z.y, _theme.base.z.z, 0,
     0, 0, 0, 1
   };
 
@@ -448,7 +449,7 @@ void wars::GlhckView::handleInput()
   if(_inputState.camera.zoomIn
      && glhckObjectGetPosition(glhckCameraGetObject(_camera))->z > 10)
   {
-        glhckObjectMovef(glhckCameraGetObject(_camera), 0, 0.5, -0.5);
+    glhckObjectMovef(glhckCameraGetObject(_camera), 0, 0.5, -0.5);
   }
 
   if(_inputState.camera.zoomOut)
@@ -475,8 +476,8 @@ void wars::GlhckView::handleInput()
     kmRay3IntersectPlane(&pointer, &_inputState.mouseRay, &plane);
 
     pointer = rectToHex(pointer);
-    _inputState.hexCursor.x = static_cast<int>(round(pointer.x));
-    _inputState.hexCursor.y = static_cast<int>(round(pointer.y));
+    _inputState.hexCursor.x = static_cast<int>(std::round(pointer.x));
+    _inputState.hexCursor.y = static_cast<int>(std::round(pointer.y));
   }
 }
 
@@ -515,18 +516,7 @@ glhckObject* wars::GlhckView::createUnitObject(const wars::Game::Unit& unit)
   glhckTexture* t = glhckTextureNewFromFile(files[unit.type].data(), glhckImportDefaultImageParameters(), glhckTextureDefaultSpriteParameters());
   glhckMaterial* m = glhckMaterialNew(t);
   glhckTextureFree(t);
-  glhckColorb colors[] = {
-    {127, 127, 127, 255},
-    {214,  61,  56, 255},
-    { 56,  67, 214, 255},
-    {217, 213,  43, 255},
-    { 99, 173, 208, 255},
-    {230,   0, 211, 255},
-    {230, 108,   0, 255},
-    {177, 108,  53, 255},
-    {173, 230,   0, 255}
-  };
-  glhckMaterialDiffuse(m, &colors[unit.owner]);
+  glhckMaterialDiffuse(m, &_theme.playerColors[unit.owner]);
   glhckObjectMaterial(o, m);
   glhckMaterialFree(m);
   glhckObjectDrawOBB(o, 1);
@@ -536,23 +526,10 @@ glhckObject* wars::GlhckView::createUnitObject(const wars::Game::Unit& unit)
 glhckObject* wars::GlhckView::createTileHex(const wars::Game::Tile& tile)
 {
   TerrainType const& terrain = _game->getRules().terrainTypes.at(tile.type);
-  std::string const files[] = {
-    "models/grass-hextile.glhckm", // road
-    "models/grass-hextile.glhckm", // plains
-    "models/grass-hextile.glhckm", // forest
-    "models/grass-hextile.glhckm", // mountains
-    "models/water-hextile.glhckm", // water
-    "models/concrete-hextile.glhckm", // city
-    "models/concrete-hextile.glhckm", // base
-    "models/concrete-hextile.glhckm", // fort
-    "models/concrete-hextile.glhckm", // airport
-    "models/concrete-hextile.glhckm", // port
-    "models/beach-hextile.glhckm", // beach
-    "models/water-hextile.glhckm", // bridge
-    "models/concrete-hextile.glhckm" // hq
-  };
-  glhckObject* o = glhckModelNew(files[terrain.id].data(), 1.0, glhckImportDefaultModelParameters());
-  kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0});
+  glhckObject* o = glhckModelNew(_theme.tiles[tile.type].model.data(), 1.0, glhckImportDefaultModelParameters());
+  kmVec3 pos = {static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0};
+  kmVec3Add(&pos, &pos, &_theme.tiles[tile.type].offset);
+  pos = hexToRect(pos);
   glhckObjectPositionf(o, pos.x, pos.y, pos.z);
   return o;
 }
@@ -560,28 +537,98 @@ glhckObject* wars::GlhckView::createTileHex(const wars::Game::Tile& tile)
 glhckObject*wars::GlhckView::createTileProp(const wars::Game::Tile& tile)
 {
   TerrainType const& terrain = _game->getRules().terrainTypes.at(tile.type);
-  std::string const files[] = {
-    "models/road.glhckm", // road
-    "", // plains
-    "models/forest.glhckm", // forest
-    "", // mountains
-    "", // water
-    "models/city.glhckm", // city
-    "", // base
-    "", // fort
-    "", // airport
-    "", // port
-    "", // beach
-    "", // bridge
-    "" // hq
-  };
-  if(files[terrain.id].empty())
+  if(_theme.tiles[terrain.id].prop.model.empty())
     return nullptr;
 
-  glhckObject* o = glhckModelNew(files[terrain.id].data(), 1.0, glhckImportDefaultModelParameters());
-  kmVec3 pos = hexToRect({static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0});
+  glhckObject* o = glhckModelNew(_theme.tiles[terrain.id].prop.model.data(), 1.0, glhckImportDefaultModelParameters());
+
+  if(_theme.tiles[terrain.id].prop.textures.size() > tile.owner)
+  {
+    glhckTexture* texture = glhckTextureNewFromFile(_theme.tiles[terrain.id].prop.textures[tile.owner].data(),
+        glhckImportDefaultImageParameters(), glhckTextureDefaultLinearParameters());
+    glhckMaterial* m = glhckObjectGetMaterial(o);
+    if(m == nullptr)
+    {
+      m = glhckMaterialNew(texture);
+      glhckObjectMaterial(o, m);
+      glhckMaterialFree(m);
+    }
+    else
+    {
+      glhckMaterialTexture(m, texture);
+    }
+    glhckTextureFree(texture);
+  }
+
+  kmVec3 pos = {static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0};
+  kmVec3Add(&pos, &pos, &_theme.tiles[tile.type].offset);
+  pos = hexToRect(pos);
   glhckObjectPositionf(o, pos.x, pos.y, pos.z);
   return o;
 
 
+}
+
+void wars::GlhckView::loadTheme(const std::string& themeFile)
+{
+  JSONValue v = JSONValue::parseFile(themeFile);
+
+  JSONValue xb = v.get("base").get("x");
+  _theme.base.x.x = xb.at(0).numberValue();
+  _theme.base.x.y = xb.at(1).numberValue();
+  _theme.base.x.z = xb.at(2).numberValue();
+
+  JSONValue yb = v.get("base").get("y");
+  _theme.base.y.x = yb.at(0).numberValue();
+  _theme.base.y.y = yb.at(1).numberValue();
+  _theme.base.y.z = yb.at(2).numberValue();
+
+  JSONValue zb = v.get("base").get("z");
+  _theme.base.z.x = zb.at(0).numberValue();
+  _theme.base.z.y = zb.at(1).numberValue();
+  _theme.base.z.z = zb.at(2).numberValue();
+
+  _theme.playerColors.clear();
+  JSONValue pc = v.get("playerColors");
+  for(int i = 0; i < pc.size(); ++i)
+  {
+    JSONValue c = pc.at(i);
+    glhckColorb color;
+    color.r = c.at(0).numberValue();
+    color.g = c.at(1).numberValue();
+    color.b = c.at(2).numberValue();
+    color.a = c.at(3).numberValue();
+    _theme.playerColors.push_back(color);
+  }
+
+  _theme.tiles.clear();
+  JSONValue tiles = v.get("tiles");
+  for(int i = 0; i < tiles.size(); ++i)
+  {
+    JSONValue t = tiles.at(i);
+    Theme::Tile tile = {"", {"", {}}, {0, 0, 0}};
+    tile.model = t.get("model").stringValue();
+    JSONValue o = t.get("offset");
+    if(o.type() != JSONValue::Type::NONE)
+    {
+      tile.offset.x = o.at(0).numberValue();
+      tile.offset.y = o.at(1).numberValue();
+      tile.offset.z = o.at(2).numberValue();
+    }
+    JSONValue prop = t.get("prop");
+    if(prop.type() != JSONValue::Type::NONE)
+    {
+      tile.prop.model = prop.get("model").stringValue();
+      JSONValue textures = prop.get("textures");
+      if(textures.type() != JSONValue::Type::NONE)
+      {
+        for(int j = 0; j < textures.size(); ++j)
+        {
+          tile.prop.textures.push_back(textures.at(j).stringValue());
+        }
+      }
+    }
+
+    _theme.tiles.push_back(tile);
+  }
 }

@@ -6,6 +6,7 @@
 #include "GLFW/glfw3.h"
 #include "gamenodepp.h"
 #include "glfwhck.h"
+#include "jsonpp.h"
 
 #include <string>
 #include <unordered_map>
@@ -41,28 +42,52 @@ namespace wars
     {
       struct
       {
-        bool left;
-        bool right;
-        bool forward;
-        bool backward;
-        bool zoomIn;
-        bool zoomOut;
+        bool left = false;
+        bool right = false;
+        bool forward = false;
+        bool backward = false;
+        bool zoomIn = false;
+        bool zoomOut = false;
       } camera;
 
       kmRay3 mouseRay;
       struct
       {
-        int x;
-        int y;
+        int x = 0;
+        int y = 0;
       } hexCursor;
 
+      InputState() : mouseRay({{0,0,0}, {0,0,0}}) {}
     };
 
-    static kmVec3 const _xBase;
-    static kmVec3 const _yBase;
-    static kmVec3 const _zBase;
-    static kmVec3 hexToRect(kmVec3 const& v);
-    static kmVec3 rectToHex(kmVec3 const& v);
+    struct Theme
+    {
+      struct Tile
+      {
+        struct Prop
+        {
+          std::string model;
+          std::vector<std::string> textures;
+        };
+
+        std::string model;
+        Prop prop;
+        kmVec3 offset;
+      };
+
+      struct
+      {
+        kmVec3 x;
+        kmVec3 y;
+        kmVec3 z;
+      } base;
+
+      std::vector<glhckColorb> playerColors;
+      std::vector<Tile> tiles;
+    };
+
+    kmVec3 hexToRect(kmVec3 const& v);
+    kmVec3 rectToHex(kmVec3 const& v);
 
     void clear();
     void initializeFromGame();
@@ -72,11 +97,15 @@ namespace wars
     glhckObject* createTileHex(Game::Tile const& tile);
     glhckObject* createTileProp(Game::Tile const& tile);
 
+    void loadTheme(std::string const& themeFile);
+
     Gamenode* _gn;
     Game* _game;
     GLFWwindow* _window;
     glhckCamera* _camera;
     glfwhckEventQueue* _glfwEvents;
+
+    Theme _theme;
 
     std::unordered_map<std::string, Unit> _units;
     std::unordered_map<std::string, Tile> _tiles;

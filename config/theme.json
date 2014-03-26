@@ -1,0 +1,80 @@
+{
+  "base": {
+    "x": [4.3, -2.24, 0],
+    "y": [0, -4.48, 0],
+    "z": [0, 0, 1]
+  },
+
+  "playerColors": [
+    [127, 127, 127, 255],
+    [214,  61,  56, 255],
+    [ 56,  67, 214, 255],
+    [217, 213,  43, 255],
+    [ 99, 173, 208, 255],
+    [230,   0, 211, 255],
+    [230, 108,   0, 255],
+    [177, 108,  53, 255],
+    [173, 230,   0, 255]
+  ],
+
+  "tiles": [
+    {
+      "model": "models/grass-hextile.glhckm",
+      "prop": {
+        "model": "models/road.glhckm"
+      }
+    },
+    {
+      "model": "models/grass-hextile.glhckm"
+    },
+    {
+      "model": "models/grass-hextile.glhckm",
+      "prop": {
+        "model": "models/forest.glhckm"
+      }
+    },
+    {
+      "model": "models/grass-hextile.glhckm"
+    },
+    {
+      "model": "models/water-hextile.glhckm",
+      "offset": [0, 0, -1]
+    },
+    {
+      "model": "models/concrete-hextile.glhckm",
+      "prop": {
+        "model": "models/city.glhckm",
+        "textures": [
+          "textures/city_0.png","textures/city_1.png","textures/city_2.png","textures/city_3.png",
+          "textures/city_4.png","textures/city_5.png","textures/city_6.png","textures/city_7.png",
+          "textures/city_8.png"
+        ]
+      }
+    },
+    {
+      "model": "models/concrete-hextile.glhckm"
+    },
+    {
+      "model": "models/concrete-hextile.glhckm"
+    },
+    {
+      "model": "models/concrete-hextile.glhckm"
+    },
+    {
+      "model": "models/water-hextile.glhckm",
+      "offset": [0, 0, -1]
+    },
+    {
+      "model": "models/beach-hextile.glhckm",
+      "offset": [0, 0, -0.5]
+    },
+    {
+      "model": "models/water-hextile.glhckm",
+      "offset": [0, 0, -1]
+    },
+    {
+      "model": "models/concrete-hextile.glhckm"
+    }
+
+  ]
+}
