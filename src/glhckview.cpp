@@ -566,7 +566,7 @@ glhckObject*wars::GlhckView::createTileProp(const wars::Game::Tile& tile)
     "models/forest.glhckm", // forest
     "", // mountains
     "", // water
-    "models/city-hextile.glhckm", // city
+    "models/city.glhckm", // city
     "", // base
     "", // fort
     "", // airport
