@@ -51,9 +51,6 @@ wars::GlhckView::GlhckView(Gamenode* gn) : _gn(gn), _window(nullptr), _shouldQui
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
-  /*_inputState.camera = {false, false, false, false, false, false};
-  _inputState.mouseRay = {{0,0,0}, {0,0,0}};
-  _inputState.hexCursor = {0, 0};*/
   if(!_window)
   {
     throw std::runtime_error("Failed to create a GLFW window");
