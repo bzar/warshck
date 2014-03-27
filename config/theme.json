@@ -34,7 +34,10 @@
       }
     },
     {
-      "model": "models/grass-hextile.glhckm"
+      "model": "models/grass-hextile.glhckm",
+      "prop": {
+        "model": "models/mountain.glhckm"
+      }
     },
     {
       "model": "models/water-hextile.glhckm",
