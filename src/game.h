@@ -146,6 +146,10 @@ namespace wars
       std::string unitId;
       int capturePoints;
       bool beingCaptured;
+
+      Tile() : id(), x(0), y(0), type(0), subtype(0), owner(0),
+        unitId(), capturePoints(0), beingCaptured(false)
+      {}
     };
     struct Unit
     {
@@ -159,6 +163,10 @@ namespace wars
       bool moved;
       bool capturing;
       std::vector<std::string> carriedUnits;
+
+      Unit() : id(), tileId(), type(0), owner(0), carriedBy(), health(0),
+        deployed(false), moved(false), capturing(false), carriedUnits()
+      {}
     };
 
     struct Player
@@ -171,6 +179,11 @@ namespace wars
       int score;
       bool emailNotifications;
       bool hidden;
+      bool isMe;
+
+      Player() : id(), userId(), playerNumber(0), teamNumber(0), funds(0),
+        score(0), emailNotifications(false), hidden(false), isMe(false)
+      {}
     };
 
     Game();
@@ -208,9 +221,11 @@ namespace wars
 
     Tile const& getTile(std::string const& tileId) const;
     Unit const& getUnit(std::string const& unitId) const;
+    Player const& getPlayer(int playerNumber) const;
 
     std::unordered_map<std::string, Tile> const& getTiles() const;
     std::unordered_map<std::string, Unit> const& getUnits() const;
+    std::unordered_map<int, Player> const& getPlayers() const;
     Rules const& getRules() const;
 
   private:
@@ -218,6 +233,7 @@ namespace wars
 
     std::string updateTileFromJSON(JSONValue const& value);
     std::string updateUnitFromJSON(JSONValue const& value);
+    int updatePlayerFromJSON(JSONValue const& value);
 
     std::string gameId;
     std::string authorId;

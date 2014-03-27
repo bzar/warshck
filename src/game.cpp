@@ -94,6 +94,14 @@ void wars::Game::setGameDataFromJSON(const JSONValue& value)
     updateTileFromJSON(tile);
   }
 
+  JSONValue playerArray = game.get("players");
+  unsigned int numPlayers = playerArray.size();
+  for(unsigned int i = 0; i < numPlayers; ++i)
+  {
+    JSONValue player = playerArray.at(i);
+    updatePlayerFromJSON(player);
+  }
+
   Event event;
   event.type = EventType::GAMEDATA;
   eventStream.push(event);
@@ -543,6 +551,11 @@ wars::Game::Unit const& wars::Game::getUnit(const std::string& unitId) const
   return units.at(unitId);
 }
 
+wars::Game::Player const& wars::Game::getPlayer(int playerNumber) const
+{
+  return players.at(playerNumber);
+}
+
 const std::unordered_map<std::string, wars::Game::Tile>& wars::Game::getTiles() const
 {
   return tiles;
@@ -551,6 +564,11 @@ const std::unordered_map<std::string, wars::Game::Tile>& wars::Game::getTiles() 
 const std::unordered_map<std::string, wars::Game::Unit>& wars::Game::getUnits() const
 {
   return units;
+}
+
+const std::unordered_map<int, wars::Game::Player>& wars::Game::getPlayers() const
+{
+  return players;
 }
 
 const wars::Rules& wars::Game::getRules() const
@@ -593,24 +611,24 @@ std::string wars::Game::updateUnitFromJSON(const JSONValue& value)
   }
   Unit& unit =  units[unitId];
 
-  if(value.get("owner").type() != JSONValue::Type::NONE)
+  if(value.has("owner"))
     unit.owner = value.get("owner").numberValue();
-  if(value.get("type").type() != JSONValue::Type::NONE)
+  if(value.has("type"))
     unit.type = value.get("type").numberValue();
-  if(value.get("tileId").type() != JSONValue::Type::NONE)
+  if(value.has("tileId"))
     unit.tileId = parseStringOrNull(value.get("tileId"), "");
-  if(value.get("carriedBy").type() != JSONValue::Type::NONE)
+  if(value.has("carriedBy"))
     unit.carriedBy = parseStringOrNull(value.get("carriedBy"), "");
-  if(value.get("health").type() != JSONValue::Type::NONE)
+  if(value.has("health"))
     unit.health = value.get("health").numberValue();
-  if(value.get("deployed").type() != JSONValue::Type::NONE)
+  if(value.has("deployed"))
     unit.deployed = value.get("deployed").booleanValue();
-  if(value.get("moved").type() != JSONValue::Type::NONE)
+  if(value.has("moved"))
     unit.moved = value.get("moved").booleanValue();
-  if(value.get("capturing").type() != JSONValue::Type::NONE)
+  if(value.has("capturing"))
     unit.capturing = value.get("capturing").booleanValue();
 
-  if(value.get("carriedUnits").type() != JSONValue::Type::NONE)
+  if(value.has("carriedUnits"))
   {
     JSONValue carriedUnits = value.get("carriedUnits");
     unsigned int numCarriedUnits = carriedUnits.size();
@@ -622,6 +640,43 @@ std::string wars::Game::updateUnitFromJSON(const JSONValue& value)
     }
   }
   return unit.id;
+}
+
+int wars::Game::updatePlayerFromJSON(const JSONValue& value)
+{
+  int playerNumber = value.get("playerNumber").numberValue();
+
+  auto iter = players.find(playerNumber);
+  if(iter == players.end())
+  {
+    Player p;
+    p.playerNumber = playerNumber;
+    players[playerNumber] = p;
+  }
+  Player& player =  players[playerNumber];
+
+  if(value.has("_id"))
+    player.id = value.get("_id").stringValue();
+  if(value.has("userId"))
+    player.userId = value.get("userId").stringValue();
+  if(value.has("teamNumber"))
+    player.teamNumber = value.get("teamNumber").numberValue();
+  if(value.has("funds"))
+    player.funds = value.get("funds").numberValue();
+  if(value.has("score"))
+    player.score = value.get("score").numberValue();
+  if(value.has("isMe"))
+    player.isMe = value.get("isMe").booleanValue();
+  if(value.has("settings"))
+  {
+    JSONValue settings = value.get("settings");
+    if(settings.has("emailNotifications"))
+      player.emailNotifications = settings.get("emailNotifications").booleanValue();
+    if(settings.has("hidden"))
+      player.hidden = settings.get("hidden").booleanValue();
+  }
+
+  return playerNumber;
 }
 
 namespace
