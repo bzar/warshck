@@ -576,6 +576,29 @@ const wars::Rules& wars::Game::getRules() const
   return rules;
 }
 
+wars::Game::Player const& wars::Game::getInTurn()
+{
+  return players.at(inTurnNumber) ;
+}
+
+const wars::Game::Tile* wars::Game::getTileAt(int x, int y) const
+{
+  for(auto const& item : tiles)
+  {
+    if(item.second.x == x && item.second.y == y)
+    {
+      return &item.second;
+    }
+  }
+
+  return nullptr;
+}
+
+const std::string& wars::Game::getGameId() const
+{
+  return gameId;
+}
+
 std::string wars::Game::updateTileFromJSON(const JSONValue& value)
 {
   Tile tile;
@@ -808,7 +831,7 @@ namespace
     wars::UnitType value;
     value.id = v.get("id").numberValue();
     value.name = v.get("name").stringValue();
-    value.unitClass = v.get("id").numberValue();
+    value.unitClass = v.get("unitClass").numberValue();
     value.price = v.get("price").numberValue();
     value.primaryWeapon = parseIntOrNull(v.get("primaryWeapon"), -1);
     value.secondaryWeapon = parseIntOrNull(v.get("secondaryWeapon"), -1);

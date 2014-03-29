@@ -47,7 +47,8 @@ void wars::GlhckView::term()
   glfwTerminate();
 }
 
-wars::GlhckView::GlhckView(Gamenode* gn) : _gn(gn), _window(nullptr), _shouldQuit(false), _units(), _tiles()
+wars::GlhckView::GlhckView(Gamenode* gn) :
+  _gn(gn), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu()
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
@@ -59,7 +60,6 @@ wars::GlhckView::GlhckView(Gamenode* gn) : _gn(gn), _window(nullptr), _shouldQui
   glfwMakeContextCurrent(_window);
 
   glfwSwapInterval(1);
-
 
   glhckLogColor(0);
   if(!glhckDisplayCreate(800, 480, GLHCK_RENDER_AUTO))
@@ -263,6 +263,7 @@ bool wars::GlhckView::handle()
 
   glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT | GLHCK_COLOR_BUFFER_BIT);
   glhckRender();
+  _menu.render();
   glfwSwapBuffers(_window);
 
   return !_shouldQuit;
@@ -357,9 +358,17 @@ void wars::GlhckView::handleInput()
       {
         int w, h;
         glfwGetWindowSize(_window, &w, &h);
-        glhckCameraCastRayFromPointf(_camera, &_inputState.mouseRay,
+        glhckCameraCastRayFromPointf(_camera, &_inputState.mouse.ray,
                                      e->mousePosition.x/w,
                                      1.0f - e->mousePosition.y/h);
+        break;
+      }
+      case GLFWHCK_EVENT_MOUSE_BUTTON:
+      {
+        if(e->mouseButton.button == GLFW_MOUSE_BUTTON_LEFT)
+        {
+          _inputState.mouse.leftButton = e->mouseButton.action != GLFW_RELEASE;
+        }
         break;
       }
       case GLFWHCK_EVENT_KEYBOARD_KEY:
@@ -405,6 +414,13 @@ void wars::GlhckView::handleInput()
           {
             quit();
             break;
+          }
+          default:
+          {
+            if(e->keyboardKey.action == GLFW_PRESS)
+            {
+              handleKey(e->keyboardKey.key);
+            }
           }
         }
         break;
@@ -466,15 +482,177 @@ void wars::GlhckView::handleInput()
     glhckObjectTarget(glhckCameraGetObject(_camera), &target);
   }
 
-  if(_inputState.mouseRay.dir.z)
+  if(_inputState.mouse.ray.dir.z)
   {
     kmVec3 pointer;
     kmPlane plane = {0, 0, 1, 0};
-    kmRay3IntersectPlane(&pointer, &_inputState.mouseRay, &plane);
+    kmRay3IntersectPlane(&pointer, &_inputState.mouse.ray, &plane);
 
     pointer = rectToHex(pointer);
     _inputState.hexCursor.x = static_cast<int>(std::round(pointer.x));
     _inputState.hexCursor.y = static_cast<int>(std::round(pointer.y));
+  }
+
+  if(_inputState.mouse.leftButton)
+  {
+    handleClick();
+    _inputState.mouse.leftButton = false;
+  }
+}
+
+void wars::GlhckView::handleClick()
+{
+  Game::Player const& inTurn = _game->getInTurn();
+  switch (_phase)
+  {
+    case Phase::SELECT:
+    {
+      if(inTurn.isMe)
+      {
+        Game::Tile const* tile = _game->getTileAt(_inputState.hexCursor.x,
+                                                  _inputState.hexCursor.y);
+        Rules const& rules = _game->getRules();
+
+        if(tile != nullptr)
+        {
+          if(tile->unitId.empty())
+          {
+            TerrainType const& terrain = rules.terrainTypes.at(tile->type);
+            if(tile->owner == inTurn.playerNumber
+               && !terrain.buildTypes.empty())
+            {
+              _inputState.selected.tileId = tile->id;
+              _phase = Phase::BUILD;
+
+              _menu.clear();
+              for(auto const& item : rules.unitTypes)
+              {
+                UnitType const& t = item.second;
+                if(terrain.buildTypes.find(t.unitClass) != terrain.buildTypes.end())
+                {
+                  _menu.addOption(t.id, t.name, t.id);
+                }
+              }
+              _menu.update();
+            }
+          }
+          else
+          {
+            Game::Unit const& unit = _game->getUnit(tile->unitId);
+            if(unit.owner == inTurn.playerNumber && !unit.moved)
+            {
+              _inputState.selected.unitId = unit.id;
+              if(unit.deployed /* TODO: or cannot move */)
+              {
+                _phase = Phase::ACTION;
+              }
+              else
+              {
+                _phase = Phase::ATTACK;
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+
+    case Phase::ACTION:
+    {
+      _phase = Phase::SELECT;
+      break;
+    }
+
+    case Phase::MOVE:
+    {
+      break;
+    }
+    case Phase::ATTACK:
+    {
+      break;
+    }
+    case Phase::UNLOAD_UNIT:
+    {
+      _phase = Phase::SELECT;
+      break;
+    }
+    case Phase::UNLOAD_TILE:
+    {
+      break;
+    }
+    case Phase::BUILD:
+    {
+      _phase = Phase::SELECT;
+      _menu.clear();
+      _menu.update();
+      break;
+    }
+
+
+    default:
+      break;
+  }
+}
+
+void wars::GlhckView::handleKey(int key)
+{
+  Game::Player const& inTurn = _game->getInTurn();
+  switch(_phase)
+  {
+    case Phase::SELECT:
+    {
+      break;
+    }
+
+    case Phase::ACTION:
+    {
+      break;
+    }
+
+    case Phase::MOVE:
+    {
+      break;
+    }
+    case Phase::ATTACK:
+    {
+      break;
+    }
+    case Phase::UNLOAD_UNIT:
+    {
+      break;
+    }
+    case Phase::UNLOAD_TILE:
+    {
+      break;
+    }
+    case Phase::BUILD:
+    {
+      int result;
+      if(_menu.input(key, &result))
+      {
+        std::cout << "Build unit id " << result << std::endl;
+        Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+        JSONValue params = JSONValue::array();
+        params.append(JSONValue::string(_game->getGameId()));
+        params.append(JSONValue::number(result));
+        JSONValue destination = JSONValue::object();
+        destination.set("x", JSONValue::number(tile.x));
+        destination.set("y", JSONValue::number(tile.y));
+        params.append(destination);
+
+        _gn->call("build", params).then<void>([](JSONValue const& v) {
+          std::cout << "build command result" << v.toString() << std::endl;
+        });
+        _phase = Phase::SELECT;
+        _menu.clear();
+        _menu.update();
+      }
+      break;
+    }
+
+
+    default:
+      break;
   }
 }
 

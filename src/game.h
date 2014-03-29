@@ -228,6 +228,11 @@ namespace wars
     std::unordered_map<int, Player> const& getPlayers() const;
     Rules const& getRules() const;
 
+    Player const& getInTurn();
+    Tile const* getTileAt(int x, int y) const;
+
+    std::string const& getGameId() const;
+
   private:
     static std::unordered_map<std::string, State> const STATE_NAMES;
 

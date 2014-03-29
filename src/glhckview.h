@@ -7,9 +7,11 @@
 #include "gamenodepp.h"
 #include "glfwhck.h"
 #include "jsonpp.h"
+#include "textmenu.h"
 
 #include <string>
 #include <unordered_map>
+#include <memory>
 
 namespace wars
 {
@@ -50,14 +52,23 @@ namespace wars
         bool zoomOut = false;
       } camera;
 
-      kmRay3 mouseRay;
+      struct
+      {
+        kmRay3 ray = {{0,0,0}, {0,0,0}};
+        bool leftButton = false;
+      } mouse;
       struct
       {
         int x = 0;
         int y = 0;
       } hexCursor;
 
-      InputState() : mouseRay({{0,0,0}, {0,0,0}}) {}
+      struct
+      {
+        std::string tileId = "";
+        std::string unitId = "";
+        std::string carrierId = "";
+      } selected;
     };
 
     struct Theme
@@ -86,13 +97,15 @@ namespace wars
       std::vector<Tile> tiles;
     };
 
+
     kmVec3 hexToRect(kmVec3 const& v);
     kmVec3 rectToHex(kmVec3 const& v);
 
     void clear();
     void initializeFromGame();
     void handleInput();
-
+    void handleClick();
+    void handleKey(int key);
     glhckObject* createUnitObject(Game::Unit const& unit);
     glhckObject* createTileHex(Game::Tile const& tile);
     glhckObject* createTileProp(Game::Tile const& tile);
@@ -112,6 +125,10 @@ namespace wars
 
     bool _shouldQuit;
     InputState _inputState;
+
+    enum class Phase { SELECT, MOVE, ACTION, ATTACK, UNLOAD_UNIT, UNLOAD_TILE, BUILD };
+    Phase _phase = Phase::SELECT;
+    TextMenu _menu;
   };
 }
 #endif // WARS_GLHCKVIEW_H
