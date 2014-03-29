@@ -155,7 +155,11 @@ void wars::Game::processEventFromJSON(const JSONValue& value)
   {
     std::string attackerId = content.get("attacker").get("unitId").stringValue();
     std::string targetId = content.get("target").get("unitId").stringValue();
-    int damage = content.get("damage").numberValue();
+    int damage = -1;
+    if(content.get("damage").type() == JSONValue::Type::NUMBER)
+    {
+      damage = content.get("damage").numberValue();
+    }
     counterattackUnit(attackerId, targetId, damage);
   }
   else if(action == "capture")
