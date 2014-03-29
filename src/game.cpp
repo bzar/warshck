@@ -684,13 +684,13 @@ int wars::Game::updatePlayerFromJSON(const JSONValue& value)
     player.userId = value.get("userId").stringValue();
   if(value.has("teamNumber"))
     player.teamNumber = value.get("teamNumber").numberValue();
-  if(value.has("funds"))
+  if(value.get("funds").type() == JSONValue::Type::NUMBER)
     player.funds = value.get("funds").numberValue();
   if(value.has("score"))
     player.score = value.get("score").numberValue();
   if(value.has("isMe"))
     player.isMe = value.get("isMe").booleanValue();
-  if(value.has("settings"))
+  if(value.get("settings").type() == JSONValue::Type::OBJECT)
   {
     JSONValue settings = value.get("settings");
     if(settings.has("emailNotifications"))
