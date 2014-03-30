@@ -14,6 +14,7 @@ class Gamenode
 {
 public:
   typedef std::function<JSONValue(JSONValue const&)> Method;
+  typedef std::function<void(JSONValue const&)> VoidMethod;
   Gamenode() : _gn(gamenodeNew(gamenodeCallback)), _callbacks()
   {
     gamenodeSetUserData(_gn, this);
@@ -28,6 +29,21 @@ public:
   void onMethod(std::string const& methodName, Method method)
   {
     _methods[methodName] = method;
+    std::vector<const char*> methodList;
+    for(auto& pair : _methods)
+    {
+      methodList.push_back(pair.first.data());
+    }
+    gamenodeSetMethodNames(_gn, methodList.data(), methodList.size());
+  }
+
+  void onVoidMethod(std::string const& methodName, VoidMethod method)
+  {
+    _methods[methodName] = [method](JSONValue const& v) mutable {
+      method(v);
+      return JSONValue();
+    };
+
     std::vector<const char*> methodList;
     for(auto& pair : _methods)
     {
@@ -136,7 +152,8 @@ private:
       auto& callback = iter->second;
       JSONValue p(JSON_Value_Clone(params));
       JSONValue ret = callback(p);
-      gamenodeResponse(_gn, msgId, ret.extract());
+      if(ret.type() != JSONValue::Type::NONE)
+        gamenodeResponse(_gn, msgId, ret.extract());
     }
   }
 
