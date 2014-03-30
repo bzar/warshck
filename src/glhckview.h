@@ -69,6 +69,8 @@ namespace wars
         std::string unitId = "";
         std::string carrierId = "";
       } selected;
+
+      bool acceptInput = false;
     };
 
     struct Theme

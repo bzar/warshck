@@ -345,10 +345,14 @@ void wars::GlhckView::initializeFromGame()
     }
   }
 
+  _inputState.acceptInput = true;
 }
 
 void wars::GlhckView::handleInput()
 {
+  if(!_inputState.acceptInput)
+    return;
+
   while(!glfwhckEventQueueEmpty(_glfwEvents))
   {
     const glfwhckEvent* e = glfwhckEventQueuePop(_glfwEvents);
@@ -432,7 +436,8 @@ void wars::GlhckView::handleInput()
       }
       case GLFWHCK_EVENT_WINDOW_RESIZE:
       {
-        glhckDisplayResize(e->windowResize.width, e->windowResize.height);
+        if(e->windowResize.width > 0 && e->windowResize.height > 0)
+          glhckDisplayResize(e->windowResize.width, e->windowResize.height);
         break;
       }
       default:
