@@ -6,6 +6,10 @@ find_package(CURL REQUIRED)
 set(GLHCK_BUILD_EXAMPLES OFF CACHE BOOL "Skip GLHCK examples")
 SET(GLFW_BUILD_EXAMPLES 0 CACHE BOOL "Don't build examples for GLFW")
 SET(GLFW_BUILD_TESTS 0 CACHE BOOL "Don't build tests for GLFW")
+SET(LWS_WITHOUT_TESTAPPS ON CACHE BOOL "Don't build tests for libwebsockets")
+#SET(LWS_WITHOUT_EXTENSIONS ON CACHE BOOL "Don't build extensions for libwebsockets")
+SET(LWS_WITHOUT_DAEMONIZE ON CACHE BOOL "Don't build daemonize for libwebsockets")
+
 
 add_subdirectory(lib)
 
