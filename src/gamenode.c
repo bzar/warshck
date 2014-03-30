@@ -210,6 +210,9 @@ void gamenodeDisconnect(gamenode* gn)
 
 char gamenodeHandle(gamenode* gn)
 {
+  if (gn->writeQueue)
+    libwebsocket_callback_on_writable(gn->wsCtx, gn->ws);
+
   return libwebsocket_service(gn->wsCtx, 0);
 }
 
@@ -289,7 +292,6 @@ long int sendMessage(gamenode* gn, long msgId, struct JSON_Value* msg)
   free(msgData);
   queueDataForSending(gn, msgStr);
   free(msgStr);
-  libwebsocket_callback_on_writable(gn->wsCtx, gn->ws);
 
   return msgId;
 }
@@ -330,7 +332,6 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
   {
     queueDataForSending(gn, "2:::");
     gn->sioPreviousHeartbeat = now;
-    libwebsocket_callback_on_writable(context, wsi);
   }
 
   switch(reason)
@@ -372,7 +373,7 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
         buffer = gn->readBuffer;
       }
 
-      //printf("Received: %s\n", buffer);
+      printf("Received: %s\n", buffer);
       lsio_packet_t* packet = calloc(1, sizeof(lsio_packet_t));
       lsio_packet_init(packet);
 
@@ -454,14 +455,18 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
       while(gn->writeQueue)
       {
         queueData* d = gn->writeQueue;
-        //printf("Sending data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
-        gn->writeQueue = d->next;
+        printf("Sending data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
         d->sent += libwebsocket_write(wsi, d->data + LWS_SEND_BUFFER_PRE_PADDING + d->sent, d->size - d->sent, LWS_WRITE_TEXT);
-        if(d->sent == d->size)
+
+        if(d->sent < d->size)
         {
-          free(d->data);
-          free(d);
+          // partial write, don't attempt to send the rest yet
+          break;
         }
+
+        gn->writeQueue = d->next;
+        free(d->data);
+        free(d);
       }
       break;
     }
