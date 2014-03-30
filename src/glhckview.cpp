@@ -94,7 +94,7 @@ void wars::GlhckView::setGame(Game* game)
 {
   _game = game;
 
-  _game->events().on<void>([this](wars::Game::Event const& e) {
+  eventSub = _game->events().on([this](wars::Game::Event const& e) {
     switch(e.type)
     {
       case wars::Game::EventType::GAMEDATA:

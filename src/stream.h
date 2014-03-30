@@ -4,101 +4,84 @@
 #include <functional>
 #include <vector>
 #include <memory>
+#include <algorithm>
 
 template<typename T>
 class Stream;
 template<>
 class Stream<void>;
 
-namespace
-{
-
-  template<typename TT, typename RR>
-  Stream<RR> _on(Stream<TT>& p, std::function<Stream<RR>(TT const&)> callback);
-
-  template<typename TT>
-  Stream<void> _on(Stream<TT>& p, std::function<void(TT const&)> callback);
-
-  template<typename RR>
-  Stream<RR> _on(Stream<void>& p, std::function<Stream<RR>()> callback);
-
-  Stream<void> _on(Stream<void>& p, std::function<void()> callback);
-}
-
 template<typename T>
 class Stream
 {
 public:
-  Stream() : _callbacks(std::make_shared<Callbacks>()), _forwards(std::make_shared<Forwards>())
+  typedef std::function<void(T const&)> Callback;
+
+  class Subscription
   {
-
-  }
-
-  Stream(Stream const& other) : _callbacks(other._callbacks), _forwards(other._forwards)
-  {
-
-  }
-
-  ~Stream()
-  {
-
-  }
-
-  Stream& operator=(Stream const& other)
-  {
-    if(this != &other)
+  public:
+    Subscription() = default;
+    Subscription(Subscription const& other) = default;
+    Subscription& operator=(Subscription const& other) = default;
+    void unsubscribe()
     {
-      _callbacks = other._callbacks;
-      _forwards = other._forwards;
+      _callback.reset();
     }
-    return *this;
+
+  private:
+    friend class Stream<T>;
+    Subscription(Callback callback) : _callback(std::make_shared<Callback>(callback))
+    {
+    }
+
+    std::shared_ptr<Callback> _callback;
+  };
+
+  Stream() : _callbacks(std::make_shared<Callbacks>())
+  {
+
   }
 
-  template<typename R>
-  Stream<R> on(std::function<Stream<R>(T const&)> callback)
+  Stream(Stream const& other) = default;
+  Stream& operator=(Stream const& other) = default;
+
+  Subscription on(Callback callback)
   {
-    return ::_on<T, R>(*this, callback);
+    Subscription sub(callback);
+    _callbacks->push_back({sub._callback});
+    return sub;
   }
 
-  template<typename R>
-  Stream<R> on(std::function<R(T const&)> callback)
+  void push(T const& t)
   {
-    return ::_on<T>(*this, callback);
-  }
-
-
-  void forward(Stream<T> other)
-  {
-    _forwards->push_back(other);
-  }
-
-  bool push(T const& t)
-  {
+    bool cancelledSubscriptions = false;
     for(auto& cb : *_callbacks)
     {
-      cb(t);
+      auto cbs = cb.lock();
+      if(cbs)
+      {
+        (*cbs)(t);
+      }
+      else
+      {
+        cancelledSubscriptions = true;
+      }
     }
 
-    for(Stream<T>& fwd : *_forwards)
+    if(cancelledSubscriptions)
     {
-      fwd.push(t);
+      _callbacks->erase(std::remove_if(_callbacks->begin(), _callbacks->end(), [](CallbackRef const& cb) {
+        return !(cb.lock());
+      }));
     }
-
-    return true;
   }
-  /*private:
-  template<typename TT, typename RR>
-  friend Stream<RR> ::_on(Stream<TT>& p, std::function<RR(TT const&)> callback);
 
-  template<typename TT>
-  friend Stream<void> ::_on(Stream<TT>& p, std::function<void(TT const&)> callback);
-*/
-  typedef std::function<void(T const&)> Callback;
-  typedef std::vector<Callback> Callbacks;
-  typedef std::vector<Stream<T>> Forwards;
+
+private:
+  typedef std::weak_ptr<Callback> CallbackRef;
+  typedef std::vector<CallbackRef> Callbacks;
 
   std::shared_ptr<Callbacks> _callbacks;
-  std::shared_ptr<Forwards> _forwards;
 };
 
 
@@ -106,119 +89,71 @@ template<>
 class Stream<void>
 {
 public:
-  Stream() : _callbacks(std::make_shared<Callbacks>()), _forwards(std::make_shared<Forwards>())
+  typedef std::function<void()> Callback;
+
+  class Subscription
   {
-
-  }
-
-  Stream(Stream const& other) : _callbacks(other._callbacks), _forwards(other._forwards)
-  {
-
-  }
-
-  ~Stream()
-  {
-
-  }
-
-  Stream& operator=(Stream const& other)
-  {
-    if(this != &other)
+  public:
+    Subscription() = default;
+    Subscription(Subscription const& other) = default;
+    Subscription& operator=(Subscription const& other) = default;
+    void unsubscribe()
     {
-      _callbacks = other._callbacks;
-      _forwards = other._forwards;
+      _callback.reset();
     }
-    return *this;
+
+  private:
+    friend class Stream<void>;
+    Subscription(Callback callback) : _callback(std::make_shared<Callback>(callback))
+    {
+    }
+
+    std::shared_ptr<Callback> _callback;
+  };
+
+  Stream() : _callbacks(std::make_shared<Callbacks>())
+  {
+
   }
 
-  template<typename R>
-  Stream<R> on(std::function<Stream<R>()> callback)
+  Stream(Stream const& other) = default;
+  Stream& operator=(Stream const& other) = default;
+
+  Subscription on(Callback callback)
   {
-    return ::_on<R>(*this, callback);
+    Subscription sub(callback);
+    _callbacks->push_back({sub._callback});
+    return sub;
   }
 
-  template<typename R>
-  Stream<R> on(std::function<R()> callback)
+  void push()
   {
-    return ::_on(*this, callback);
-  }
-
-  void forward(Stream<void> other)
-  {
-    _forwards->push_back(other);
-  }
-  bool push()
-  {
+    bool cancelledSubscriptions = false;
     for(auto& cb : *_callbacks)
     {
-      cb();
+      auto cbs = cb.lock();
+      if(cbs)
+      {
+        (*cbs)();
+      }
+      else
+      {
+        cancelledSubscriptions = true;
+      }
     }
 
-    for(Stream<void>& fwd : *_forwards)
+    if(cancelledSubscriptions)
     {
-      fwd.push();
+      _callbacks->erase(std::remove_if(_callbacks->begin(), _callbacks->end(), [](CallbackRef const& cb) {
+        return !(cb.lock());
+      }));
     }
-
-    return true;
   }
-  /*private:
-  template<typename RR>
-  friend Stream<RR> ::_on(Stream<void>& p, std::function<RR()> callback);
 
-  template<>
-  friend Stream<void> ::_on(Stream<void>& p, std::function<void()> callback);
-*/
-  typedef std::vector<std::function<void()>> Callbacks;
-  typedef std::vector<Stream<void>> Forwards;
+private:
+  typedef std::weak_ptr<Callback> CallbackRef;
+  typedef std::vector<CallbackRef> Callbacks;
   std::shared_ptr<Callbacks> _callbacks;
-  std::shared_ptr<Forwards> _forwards;
 };
 
-namespace
-{
-
-  template<typename TT, typename RR>
-  Stream<RR> _on(Stream<TT>& p, std::function<Stream<RR>(TT const&)> callback)
-  {
-    Stream<RR> stream;
-    p._callbacks->push_back([callback, stream](TT const& t) mutable {
-      callback(t).forward(stream);
-    });
-
-    return stream;
-  }
-
-  template<typename TT>
-  Stream<void> _on(Stream<TT>& p, std::function<void(TT const&)> callback)
-  {
-    Stream<void> stream;
-    p._callbacks->push_back([callback, stream](TT const& t) mutable {
-      callback(t);
-      stream.push();
-    });
-
-    return stream;
-  }
-
-  template<typename RR>
-  Stream<RR> _on(Stream<void>& p, std::function<Stream<RR>()> callback)
-  {
-    Stream<RR> stream;
-    p._callbacks->push_back([callback, stream]() mutable {
-      callback().forward(stream);
-    });
-    return stream;
-  }
-
-  Stream<void> _on(Stream<void>& p, std::function<void()> callback)
-  {
-    Stream<void> stream;
-    p._callbacks->push_back([callback, stream]() mutable {
-      callback();
-      stream.push();
-    });
-
-    return stream;
-  }
-}
 #endif // STREAM_H

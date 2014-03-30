@@ -13,7 +13,7 @@ namespace wars
   public:
     void setGame(Game* game) override
     {
-      game->events().on<void>([game](wars::Game::Event const& e) {
+      eventSub = game->events().on([game](wars::Game::Event const& e) {
         auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::cout << now << ": ";
 
@@ -167,6 +167,9 @@ namespace wars
     {
       return true;
     }
+
+  private:
+    Stream<wars::Game::Event>::Subscription eventSub;
   };
 }
 #endif // WARS_LOGGERVIEW_H

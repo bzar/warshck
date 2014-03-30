@@ -114,6 +114,7 @@ namespace wars
 
     Gamenode* _gn;
     Game* _game;
+    Stream<wars::Game::Event>::Subscription eventSub;
     GLFWwindow* _window;
     glhckCamera* _camera;
     glfwhckEventQueue* _glfwEvents;

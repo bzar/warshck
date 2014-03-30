@@ -27,7 +27,7 @@ int main(int argc, char** argv)
   Gamenode gn;
   wars::Game game;
 
-  gn.connected().on<void>([&gn, &gameId, &user, &pass, &game]() {
+  auto connectedSub = gn.connected().on([&gn, &gameId, &user, &pass, &game]() {
     std::cout << "Connected, logging in" << std::endl;
     JSONValue credentials = JSONValue::object();
     credentials.set("username", JSONValue::string(user));
@@ -49,7 +49,7 @@ int main(int argc, char** argv)
     });
   });
 
-  gn.disconnected().on<void>([&running]() {
+  auto disconnectedSub = gn.disconnected().on([&running]() {
     running = false;
   });
 
