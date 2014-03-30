@@ -685,7 +685,9 @@ int wars::Game::updatePlayerFromJSON(const JSONValue& value)
   if(value.has("_id"))
     player.id = value.get("_id").stringValue();
   if(value.has("userId"))
-    player.userId = value.get("userId").stringValue();
+    player.userId = parseStringOrNull(value.get("userId"), "");
+  if(value.has("playerName"))
+    player.playerName = parseStringOrNull(value.get("playerName"), "");
   if(value.has("teamNumber"))
     player.teamNumber = value.get("teamNumber").numberValue();
   if(value.get("funds").type() == JSONValue::Type::NUMBER)

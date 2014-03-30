@@ -173,6 +173,7 @@ namespace wars
     {
       std::string id;
       std::string userId;
+      std::string playerName;
       int playerNumber;
       int teamNumber;
       int funds;
@@ -181,7 +182,7 @@ namespace wars
       bool hidden;
       bool isMe;
 
-      Player() : id(), userId(), playerNumber(0), teamNumber(0), funds(0),
+      Player() : id(), userId(), playerName(), playerNumber(0), teamNumber(0), funds(0),
         score(0), emailNotifications(false), hidden(false), isMe(false)
       {}
     };
