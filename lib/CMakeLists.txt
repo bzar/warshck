@@ -13,5 +13,5 @@ target_link_libraries(libsocketio uriparser)
 
 
 list(APPEND CMAKE_CXX_FLAGS -std=c++11)
-file(GLOB JSON_SOURCES json/json.c json/jsonpp.cpp)
+file(GLOB JSON_SOURCES chck/json/json.c)
 add_library(json ${JSON_SOURCES})

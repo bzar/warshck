@@ -637,15 +637,9 @@ void wars::GlhckView::handleKey(int key)
       {
         std::cout << "Build unit id " << result << std::endl;
         Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
-        JSONValue params = JSONValue::array();
-        params.append(JSONValue::string(_game->getGameId()));
-        params.append(JSONValue::number(result));
-        JSONValue destination = JSONValue::object();
-        destination.set("x", JSONValue::number(tile.x));
-        destination.set("y", JSONValue::number(tile.y));
-        params.append(destination);
-
-        _gn->call("build", params).then<void>([](JSONValue const& v) {
+        json::Value params = {_game->getGameId(), result,
+                              json::Value::object({{"x", tile.x}, {"y", tile.y}})};
+        _gn->call("build", params).then<void>([](json::Value const& v) {
           std::cout << "build command result" << v.toString() << std::endl;
         });
         _phase = Phase::SELECT;
@@ -751,56 +745,56 @@ glhckObject*wars::GlhckView::createTileProp(const wars::Game::Tile& tile)
 
 void wars::GlhckView::loadTheme(const std::string& themeFile)
 {
-  JSONValue v = JSONValue::parseFile(themeFile);
+  json::Value v = json::Value::parseFile(themeFile);
 
-  JSONValue xb = v.get("base").get("x");
-  _theme.base.x.x = xb.at(0).numberValue();
-  _theme.base.x.y = xb.at(1).numberValue();
-  _theme.base.x.z = xb.at(2).numberValue();
+  json::Value xb = v.get("base").get("x");
+  _theme.base.x.x = xb.at(0).longValue();
+  _theme.base.x.y = xb.at(1).longValue();
+  _theme.base.x.z = xb.at(2).longValue();
 
-  JSONValue yb = v.get("base").get("y");
-  _theme.base.y.x = yb.at(0).numberValue();
-  _theme.base.y.y = yb.at(1).numberValue();
-  _theme.base.y.z = yb.at(2).numberValue();
+  json::Value yb = v.get("base").get("y");
+  _theme.base.y.x = yb.at(0).longValue();
+  _theme.base.y.y = yb.at(1).longValue();
+  _theme.base.y.z = yb.at(2).longValue();
 
-  JSONValue zb = v.get("base").get("z");
-  _theme.base.z.x = zb.at(0).numberValue();
-  _theme.base.z.y = zb.at(1).numberValue();
-  _theme.base.z.z = zb.at(2).numberValue();
+  json::Value zb = v.get("base").get("z");
+  _theme.base.z.x = zb.at(0).longValue();
+  _theme.base.z.y = zb.at(1).longValue();
+  _theme.base.z.z = zb.at(2).longValue();
 
   _theme.playerColors.clear();
-  JSONValue pc = v.get("playerColors");
+  json::Value pc = v.get("playerColors");
   for(int i = 0; i < pc.size(); ++i)
   {
-    JSONValue c = pc.at(i);
+    json::Value c = pc.at(i);
     glhckColorb color;
-    color.r = c.at(0).numberValue();
-    color.g = c.at(1).numberValue();
-    color.b = c.at(2).numberValue();
-    color.a = c.at(3).numberValue();
+    color.r = c.at(0).longValue();
+    color.g = c.at(1).longValue();
+    color.b = c.at(2).longValue();
+    color.a = c.at(3).longValue();
     _theme.playerColors.push_back(color);
   }
 
   _theme.tiles.clear();
-  JSONValue tiles = v.get("tiles");
+  json::Value tiles = v.get("tiles");
   for(int i = 0; i < tiles.size(); ++i)
   {
-    JSONValue t = tiles.at(i);
+    json::Value t = tiles.at(i);
     Theme::Tile tile = {"", {"", {}}, {0, 0, 0}};
     tile.model = t.get("model").stringValue();
-    JSONValue o = t.get("offset");
-    if(o.type() != JSONValue::Type::NONE)
+    json::Value o = t.get("offset");
+    if(o.type() != json::Value::Type::NONE)
     {
-      tile.offset.x = o.at(0).numberValue();
-      tile.offset.y = o.at(1).numberValue();
-      tile.offset.z = o.at(2).numberValue();
+      tile.offset.x = o.at(0).longValue();
+      tile.offset.y = o.at(1).longValue();
+      tile.offset.z = o.at(2).longValue();
     }
-    JSONValue prop = t.get("prop");
-    if(prop.type() != JSONValue::Type::NONE)
+    json::Value prop = t.get("prop");
+    if(prop.type() != json::Value::Type::NONE)
     {
       tile.prop.model = prop.get("model").stringValue();
-      JSONValue textures = prop.get("textures");
-      if(textures.type() != JSONValue::Type::NONE)
+      json::Value textures = prop.get("textures");
+      if(textures.type() != json::Value::Type::NONE)
       {
         for(int j = 0; j < textures.size(); ++j)
         {

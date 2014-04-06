@@ -14,36 +14,36 @@ std::unordered_map<std::string, wars::Game::State> const wars::Game::STATE_NAMES
 namespace
 {
   template<typename T>
-  T parse(JSONValue const& v);
+  T parse(json::Value const& v);
 
   template<typename T>
-  std::unordered_map<int, T> parseAll(JSONValue const& v);
+  std::unordered_map<int, T> parseAll(json::Value const& v);
 
   template<>
-  wars::Weapon parse(JSONValue const& v);
+  wars::Weapon parse(json::Value const& v);
   template<>
-  wars::Armor parse(JSONValue const& v);
+  wars::Armor parse(json::Value const& v);
   template<>
-  wars::UnitClass parse(JSONValue const& v);
+  wars::UnitClass parse(json::Value const& v);
   template<>
-  wars::TerrainFlag parse(JSONValue const& v);
+  wars::TerrainFlag parse(json::Value const& v);
   template<>
-  wars::TerrainType parse(JSONValue const& v);
+  wars::TerrainType parse(json::Value const& v);
   template<>
-  wars::MovementType parse(JSONValue const& v);
+  wars::MovementType parse(json::Value const& v);
   template<>
-  wars::UnitFlag parse(JSONValue const& v);
+  wars::UnitFlag parse(json::Value const& v);
   template<>
-  wars::UnitType parse(JSONValue const& v);
+  wars::UnitType parse(json::Value const& v);
   template<>
-  wars::Rules parse(JSONValue const& value);
+  wars::Rules parse(json::Value const& value);
 
-  std::unordered_map<int, int> parseIntIntMap(JSONValue const& v);
-  std::unordered_map<int, int> parseIntIntMapWithNulls(JSONValue const& v, int nullValue);
-  std::unordered_set<int> parseIntSet(JSONValue const& v);
-  int parseIntOrNull(JSONValue const& v, int nullValue);
-  std::string parseStringOrNull(JSONValue const& v, std::string const& nullValue);
-  wars::Game::Path parsePath(JSONValue const& v);
+  std::unordered_map<int, int> parseIntIntMap(json::Value const& v);
+  std::unordered_map<int, int> parseIntIntMapWithNulls(json::Value const& v, int nullValue);
+  std::unordered_set<int> parseIntSet(json::Value const& v);
+  int parseIntOrNull(json::Value const& v, int nullValue);
+  std::string parseStringOrNull(json::Value const& v, std::string const& nullValue);
+  wars::Game::Path parsePath(json::Value const& v);
 }
 wars::Game::Game(): gameId(), authorId(),  name(), mapId(),
   state(State::PREGAME), turnStart(0), turnNumber(0), roundNumber(0), inTurnNumber(0),
@@ -63,42 +63,42 @@ Stream<wars::Game::Event> wars::Game::events()
   return eventStream;
 }
 
-void wars::Game::setRulesFromJSON(const JSONValue& value)
+void wars::Game::setRulesFromJSON(const json::Value& value)
 {
   rules = parse<Rules>(value);
 }
 
-void wars::Game::setGameDataFromJSON(const JSONValue& value)
+void wars::Game::setGameDataFromJSON(const json::Value& value)
 {
-  JSONValue game = value.get("game");
+  json::Value game = value.get("game");
   gameId = game.get("gameId").stringValue();
   authorId = game.get("authorId").stringValue();
   name = game.get("name").stringValue();
   mapId = game.get("mapId").stringValue();
   state = STATE_NAMES.at(game.get("state").stringValue());
-  turnStart = game.get("turnStart").numberValue();
-  turnNumber = game.get("turnNumber").numberValue();
-  roundNumber = game.get("roundNumber").numberValue();
-  inTurnNumber = game.get("inTurnNumber").numberValue();
+  turnStart = game.get("turnStart").longValue();
+  turnNumber = game.get("turnNumber").longValue();
+  roundNumber = game.get("roundNumber").longValue();
+  inTurnNumber = game.get("inTurnNumber").longValue();
 
-  JSONValue settings = game.get("settings");
+  json::Value settings = game.get("settings");
   publicGame = settings.get("public").booleanValue();
   turnLength = parseIntOrNull(settings.get("turnLength"), -1);
   bannedUnits = parseIntSet(settings.get("bannedUnits"));
 
-  JSONValue tileArray = game.get("tiles");
+  json::Value tileArray = game.get("tiles");
   unsigned int numTiles = tileArray.size();
   for(unsigned int i = 0; i < numTiles; ++i)
   {
-    JSONValue tile = tileArray.at(i);
+    json::Value tile = tileArray.at(i);
     updateTileFromJSON(tile);
   }
 
-  JSONValue playerArray = game.get("players");
+  json::Value playerArray = game.get("players");
   unsigned int numPlayers = playerArray.size();
   for(unsigned int i = 0; i < numPlayers; ++i)
   {
-    JSONValue player = playerArray.at(i);
+    json::Value player = playerArray.at(i);
     updatePlayerFromJSON(player);
   }
 
@@ -107,30 +107,10 @@ void wars::Game::setGameDataFromJSON(const JSONValue& value)
   eventStream.push(event);
 }
 
-void wars::Game::processEventFromJSON(const JSONValue& value)
+void wars::Game::processEventFromJSON(const json::Value& value)
 {
-  JSONValue content = value.get("content");
+  json::Value content = value.get("content");
   std::string action = content.get("action").stringValue();
-  /*when "move" then map.moveUnit e.unit.unitId, e.tile.tileId, e.path, nextEvent
-    when "wait" then map.waitUnit e.unit.unitId, nextEvent
-    when "attack" then map.attackUnit e.attacker.unitId, e.target.unitId, e.damage, nextEvent
-    when "counterattack" then map.counterattackUnit e.attacker.unitId, e.target.unitId, e.damage, nextEvent
-    when "capture" then map.captureTile e.unit.unitId, e.tile.tileId, e.left, nextEvent
-    when "captured" then map.capturedTile e.unit.unitId, e.tile.tileId, nextEvent
-    when "deploy" then map.deployUnit e.unit.unitId, nextEvent
-    when "undeploy" then map.undeployUnit e.unit.unitId, nextEvent
-    when "load" then map.loadUnit e.unit.unitId, e.carrier.unitId, nextEvent
-    when "unload" then map.unloadUnit e.unit.unitId, e.carrier.unitId, e.tile.tileId, nextEvent
-    when "destroyed" then map.destroyUnit e.unit.unitId, nextEvent
-    when "repair" then map.repairUnit e.unit.unitId, e.newHealth, nextEvent
-    when "build" then map.buildUnit e.tile.tileId, e.unit, nextEvent
-    when "regenerateCapturePoints" then map.regenerateCapturePointsTile e.tile.tileId, e.newCapturePoints, nextEvent
-    when "produceFunds" then map.produceFundsTile e.tile.tileId, nextEvent
-    when "beginTurn" then map.beginTurn e.player, nextEvent
-    when "endTurn" then map.endTurn e.player, nextEvent
-    when "turnTimeout" then map.turnTimeout e.player, nextEvent
-    when "finished" then map.finished e.winner, nextEvent
-    when "surrender" then map.surrender e.player, nextEvent*/
 
   if(action == "move")
   {
@@ -148,7 +128,7 @@ void wars::Game::processEventFromJSON(const JSONValue& value)
   {
     std::string attackerId = content.get("attacker").get("unitId").stringValue();
     std::string targetId = content.get("target").get("unitId").stringValue();
-    int damage = content.get("damage").numberValue();
+    int damage = content.get("damage").longValue();
     attackUnit(attackerId, targetId, damage);
   }
   else if(action == "counterattack")
@@ -156,9 +136,9 @@ void wars::Game::processEventFromJSON(const JSONValue& value)
     std::string attackerId = content.get("attacker").get("unitId").stringValue();
     std::string targetId = content.get("target").get("unitId").stringValue();
     int damage = -1;
-    if(content.get("damage").type() == JSONValue::Type::NUMBER)
+    if(content.get("damage").type() == json::Value::Type::NUMBER)
     {
-      damage = content.get("damage").numberValue();
+      damage = content.get("damage").longValue();
     }
     counterattackUnit(attackerId, targetId, damage);
   }
@@ -166,7 +146,7 @@ void wars::Game::processEventFromJSON(const JSONValue& value)
   {
     std::string unitId = content.get("unit").get("unitId").stringValue();
     std::string tileId = content.get("tile").get("tileId").stringValue();
-    int left = content.get("left").numberValue();
+    int left = content.get("left").longValue();
     captureTile(unitId, tileId, left);
   }
   else if(action == "captured")
@@ -206,7 +186,7 @@ void wars::Game::processEventFromJSON(const JSONValue& value)
   else if(action == "repair")
   {
     std::string unitId = content.get("unit").get("unitId").stringValue();
-    int newHealth = content.get("newHealth").numberValue();
+    int newHealth = content.get("newHealth").longValue();
     repairUnit(unitId, newHealth);
   }
   else if(action == "build")
@@ -219,7 +199,7 @@ void wars::Game::processEventFromJSON(const JSONValue& value)
   else if(action == "regenerateCapturePoints")
   {
     std::string tileId = content.get("tile").get("tileId").stringValue();
-    int newCapturePoints = content.get("newCapturePoints").numberValue();
+    int newCapturePoints = content.get("newCapturePoints").longValue();
     regenerateCapturePointsTile(tileId, newCapturePoints);
   }
   else if(action == "produceFunds")
@@ -229,27 +209,27 @@ void wars::Game::processEventFromJSON(const JSONValue& value)
   }
   else if(action == "beginTurn")
   {
-    int playerNumber = content.get("player").numberValue();
+    int playerNumber = content.get("player").longValue();
     beginTurn(playerNumber);
   }
   else if(action == "endTurn")
   {
-    int playerNumber = content.get("player").numberValue();
+    int playerNumber = content.get("player").longValue();
     endTurn(playerNumber);
   }
   else if(action == "turnTimeout")
   {
-    int playerNumber = content.get("player").numberValue();
+    int playerNumber = content.get("player").longValue();
     turnTimeout(playerNumber);
   }
   else if(action == "finished")
   {
-    int winnerPlayerNumber = content.get("winner").numberValue();
+    int winnerPlayerNumber = content.get("winner").longValue();
     finished(winnerPlayerNumber);
   }
   else if(action == "surrender")
   {
-    int playerNumber = content.get("player").numberValue();
+    int playerNumber = content.get("player").longValue();
     surrender(playerNumber);
   }
   else
@@ -258,12 +238,12 @@ void wars::Game::processEventFromJSON(const JSONValue& value)
   }
 }
 
-void wars::Game::processEventsFromJSON(const JSONValue& value)
+void wars::Game::processEventsFromJSON(const json::Value& value)
 {
   unsigned int numEvents = value.size();
   for(int i = 0; i < numEvents; ++i)
   {
-    JSONValue event = value.at(i);
+    json::Value event = value.at(i);
     processEventFromJSON(event);
   }
 }
@@ -603,16 +583,16 @@ const std::string& wars::Game::getGameId() const
   return gameId;
 }
 
-std::string wars::Game::updateTileFromJSON(const JSONValue& value)
+std::string wars::Game::updateTileFromJSON(const json::Value& value)
 {
   Tile tile;
   tile.id = value.get("tileId").stringValue();
-  tile.x = value.get("x").numberValue();
-  tile.y = value.get("y").numberValue();
-  tile.type = value.get("type").numberValue();
-  tile.subtype = value.get("subtype").numberValue();
-  tile.owner = value.get("owner").numberValue();
-  tile.capturePoints = value.get("capturePoints").numberValue();
+  tile.x = value.get("x").longValue();
+  tile.y = value.get("y").longValue();
+  tile.type = value.get("type").longValue();
+  tile.subtype = value.get("subtype").longValue();
+  tile.owner = value.get("owner").longValue();
+  tile.capturePoints = value.get("capturePoints").longValue();
   tile.beingCaptured = value.get("beingCaptured").booleanValue();
   tile.unitId = parseStringOrNull(value.get("unitId"), "");
 
@@ -625,7 +605,7 @@ std::string wars::Game::updateTileFromJSON(const JSONValue& value)
   return tile.id;
 }
 
-std::string wars::Game::updateUnitFromJSON(const JSONValue& value)
+std::string wars::Game::updateUnitFromJSON(const json::Value& value)
 {
   std::string unitId = value.get("unitId").stringValue();
 
@@ -639,15 +619,15 @@ std::string wars::Game::updateUnitFromJSON(const JSONValue& value)
   Unit& unit =  units[unitId];
 
   if(value.has("owner"))
-    unit.owner = value.get("owner").numberValue();
+    unit.owner = value.get("owner").longValue();
   if(value.has("type"))
-    unit.type = value.get("type").numberValue();
+    unit.type = value.get("type").longValue();
   if(value.has("tileId"))
     unit.tileId = parseStringOrNull(value.get("tileId"), "");
   if(value.has("carriedBy"))
     unit.carriedBy = parseStringOrNull(value.get("carriedBy"), "");
   if(value.has("health"))
-    unit.health = value.get("health").numberValue();
+    unit.health = value.get("health").longValue();
   if(value.has("deployed"))
     unit.deployed = value.get("deployed").booleanValue();
   if(value.has("moved"))
@@ -657,11 +637,11 @@ std::string wars::Game::updateUnitFromJSON(const JSONValue& value)
 
   if(value.has("carriedUnits"))
   {
-    JSONValue carriedUnits = value.get("carriedUnits");
+    json::Value carriedUnits = value.get("carriedUnits");
     unsigned int numCarriedUnits = carriedUnits.size();
     for(unsigned int i = 0; i < numCarriedUnits; ++i)
     {
-      JSONValue carriedUnit = carriedUnits.at(i);
+      json::Value carriedUnit = carriedUnits.at(i);
       std::string carriedUnitId = updateUnitFromJSON(carriedUnit);
       unit.carriedUnits.push_back(carriedUnitId);
     }
@@ -669,9 +649,9 @@ std::string wars::Game::updateUnitFromJSON(const JSONValue& value)
   return unit.id;
 }
 
-int wars::Game::updatePlayerFromJSON(const JSONValue& value)
+int wars::Game::updatePlayerFromJSON(const json::Value& value)
 {
-  int playerNumber = value.get("playerNumber").numberValue();
+  int playerNumber = value.get("playerNumber").longValue();
 
   auto iter = players.find(playerNumber);
   if(iter == players.end())
@@ -689,16 +669,16 @@ int wars::Game::updatePlayerFromJSON(const JSONValue& value)
   if(value.has("playerName"))
     player.playerName = parseStringOrNull(value.get("playerName"), "");
   if(value.has("teamNumber"))
-    player.teamNumber = value.get("teamNumber").numberValue();
-  if(value.get("funds").type() == JSONValue::Type::NUMBER)
-    player.funds = value.get("funds").numberValue();
+    player.teamNumber = value.get("teamNumber").longValue();
+  if(value.get("funds").type() == json::Value::Type::NUMBER)
+    player.funds = value.get("funds").longValue();
   if(value.has("score"))
-    player.score = value.get("score").numberValue();
+    player.score = value.get("score").longValue();
   if(value.has("isMe"))
     player.isMe = value.get("isMe").booleanValue();
-  if(value.get("settings").type() == JSONValue::Type::OBJECT)
+  if(value.get("settings").type() == json::Value::Type::OBJECT)
   {
-    JSONValue settings = value.get("settings");
+    json::Value settings = value.get("settings");
     if(settings.has("emailNotifications"))
       player.emailNotifications = settings.get("emailNotifications").booleanValue();
     if(settings.has("hidden"))
@@ -711,13 +691,13 @@ int wars::Game::updatePlayerFromJSON(const JSONValue& value)
 namespace
 {
   template<typename T>
-  std::unordered_map<int, T> parseAll(JSONValue const& v)
+  std::unordered_map<int, T> parseAll(json::Value const& v)
   {
     std::unordered_map<int, T> result;
     std::vector<std::string> ids = v.properties();
     for(std::string id : ids)
     {
-      JSONValue json = v.get(id.data());
+      json::Value json = v.get(id.data());
       T t = parse<T>(json);
       result[t.id] = t;
     }
@@ -725,10 +705,10 @@ namespace
   }
 
   template<>
-  wars::Weapon parse(JSONValue const& v)
+  wars::Weapon parse(json::Value const& v)
   {
     wars::Weapon weapon;
-    weapon.id = v.get("id").numberValue();
+    weapon.id = v.get("id").longValue();
     weapon.name = v.get("name").stringValue();
     weapon.requireDeployed = v.get("requireDeployed").booleanValue();
 
@@ -738,7 +718,7 @@ namespace
     return weapon;
   }
 
-  std::unordered_map<int, int> parseIntIntMap(JSONValue const& v)
+  std::unordered_map<int, int> parseIntIntMap(json::Value const& v)
   {
     std::vector<std::string> props = v.properties();
     std::unordered_map<int, int> result;
@@ -746,13 +726,13 @@ namespace
     {
       int i = 0;
       std::istringstream(s) >> i;
-      result[i] = v.get(s).numberValue();
+      result[i] = v.get(s).longValue();
     }
 
     return result;
   }
 
-  std::unordered_map<int, int> parseIntIntMapWithNulls(JSONValue const& v, int nullValue)
+  std::unordered_map<int, int> parseIntIntMapWithNulls(json::Value const& v, int nullValue)
   {
     std::vector<std::string> props = v.properties();
     std::unordered_map<int, int> result;
@@ -760,14 +740,14 @@ namespace
     {
       int i = 0;
       std::istringstream(s) >> i;
-      JSONValue prop = v.get(s);
-      if(prop.type() == JSONValue::Type::NULL_JSON)
+      json::Value prop = v.get(s);
+      if(prop.type() == json::Value::Type::NULL_JSON)
       {
         result[i] = nullValue;
       }
       else
       {
-        result[i] = prop.numberValue();
+        result[i] = prop.longValue();
       }
     }
 
@@ -775,36 +755,36 @@ namespace
   }
 
   template<>
-  wars::Armor parse(JSONValue const& v)
+  wars::Armor parse(json::Value const& v)
   {
     wars::Armor armor;
-    armor.id = v.get("id").numberValue();
+    armor.id = v.get("id").longValue();
     armor.name = v.get("name").stringValue();
     return armor;
   }
   template<>
-  wars::UnitClass parse(JSONValue const& v)
+  wars::UnitClass parse(json::Value const& v)
   {
     wars::UnitClass value;
-    value.id = v.get("id").numberValue();
+    value.id = v.get("id").longValue();
     value.name = v.get("name").stringValue();
     return value;
   }
 
   template<>
-  wars::TerrainFlag parse(JSONValue const& v)
+  wars::TerrainFlag parse(json::Value const& v)
   {
     wars::TerrainFlag value;
-    value.id = v.get("id").numberValue();
+    value.id = v.get("id").longValue();
     value.name = v.get("name").stringValue();
     return value;
   }
 
   template<>
-  wars::TerrainType parse(JSONValue const& v)
+  wars::TerrainType parse(json::Value const& v)
   {
     wars::TerrainType value;
-    value.id = v.get("id").numberValue();
+    value.id = v.get("id").longValue();
     value.name = v.get("name").stringValue();
     value.buildTypes = parseIntSet(v.get("buildTypes"));
     value.repairTypes = parseIntSet(v.get("repairTypes"));
@@ -813,47 +793,47 @@ namespace
   }
 
   template<>
-  wars::MovementType parse(JSONValue const& v)
+  wars::MovementType parse(json::Value const& v)
   {
     wars::MovementType value;
-    value.id = v.get("id").numberValue();
+    value.id = v.get("id").longValue();
     value.name = v.get("name").stringValue();
     value.effectMap = parseIntIntMapWithNulls(v.get("effectMap"), -1);
     return value;
   }
 
   template<>
-  wars::UnitFlag parse(JSONValue const& v)
+  wars::UnitFlag parse(json::Value const& v)
   {
     wars::UnitFlag value;
-    value.id = v.get("id").numberValue();
+    value.id = v.get("id").longValue();
     value.name = v.get("name").stringValue();
     return value;
   }
 
   template<>
-  wars::UnitType parse(JSONValue const& v)
+  wars::UnitType parse(json::Value const& v)
   {
     wars::UnitType value;
-    value.id = v.get("id").numberValue();
+    value.id = v.get("id").longValue();
     value.name = v.get("name").stringValue();
-    value.unitClass = v.get("unitClass").numberValue();
-    value.price = v.get("price").numberValue();
+    value.unitClass = v.get("unitClass").longValue();
+    value.price = v.get("price").longValue();
     value.primaryWeapon = parseIntOrNull(v.get("primaryWeapon"), -1);
     value.secondaryWeapon = parseIntOrNull(v.get("secondaryWeapon"), -1);
-    value.armor = v.get("armor").numberValue();
+    value.armor = v.get("armor").longValue();
     value.defenseMap = parseIntIntMap(v.get("defenseMap"));
-    value.movementType = v.get("movementType").numberValue();
-    value.movement = v.get("movement").numberValue();
+    value.movementType = v.get("movementType").longValue();
+    value.movement = v.get("movement").longValue();
     value.carryClasses = parseIntSet(v.get("carryClasses"));
-    value.carryNum = v.get("carryNum").numberValue();
+    value.carryNum = v.get("carryNum").longValue();
     value.flags = parseIntSet(v.get("flags"));
 
     return value;
   }
 
   template<>
-  wars::Rules parse(JSONValue const& value)
+  wars::Rules parse(json::Value const& value)
   {
     wars::Rules rules;
     rules.weapons = parseAll<wars::Weapon>(value.get("weapons"));
@@ -867,29 +847,29 @@ namespace
     return rules;
   }
 
-  std::unordered_set<int> parseIntSet(JSONValue const& v)
+  std::unordered_set<int> parseIntSet(json::Value const& v)
   {
     std::unordered_set<int> result;
     for(unsigned int i = 0; i < v.size(); ++i)
     {
-      result.insert(v.at(i).numberValue());
+      result.insert(v.at(i).longValue());
     }
     return result;
   }
-  int parseIntOrNull(JSONValue const& v, int nullValue)
+  int parseIntOrNull(json::Value const& v, int nullValue)
   {
-    if(v.type() == JSONValue::Type::NULL_JSON)
+    if(v.type() == json::Value::Type::NULL_JSON)
     {
       return nullValue;
     }
     else
     {
-      return v.numberValue();
+      return v.longValue();
     }
   }
-  std::string parseStringOrNull(JSONValue const& v, std::string const& nullValue)
+  std::string parseStringOrNull(json::Value const& v, std::string const& nullValue)
   {
-    if(v.type() == JSONValue::Type::NULL_JSON)
+    if(v.type() == json::Value::Type::NULL_JSON)
     {
       return nullValue;
     }
@@ -899,15 +879,15 @@ namespace
     }
 
   }
-  wars::Game::Path parsePath(JSONValue const& v)
+  wars::Game::Path parsePath(json::Value const& v)
   {
     wars::Game::Path path;
     unsigned int numCoordinates = v.size();
     for(int i = 0; i < numCoordinates; ++i)
     {
-      JSONValue value = v.at(i);
-      int x = value.get("x").numberValue();
-      int y = value.get("y").numberValue();
+      json::Value value = v.at(i);
+      int x = value.get("x").longValue();
+      int y = value.get("y").longValue();
       path.push_back({x, y});
     }
     return path;

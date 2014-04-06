@@ -21,7 +21,7 @@ include_directories(
   ${glhck_SOURCE_DIR}/include
   ${kazmath_SOURCE_DIR}/src
   lib/libsocketio/include
-  lib/json/
+  lib/chck/json/
 )
 
 file(GLOB SOURCES src/*.cpp src/*.c)

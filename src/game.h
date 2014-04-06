@@ -9,7 +9,10 @@
 #include "rules.h"
 #include "stream.h"
 
-class JSONValue;
+namespace json
+{
+   class Value;
+}
 
 namespace wars
 {
@@ -192,10 +195,10 @@ namespace wars
 
     Stream<Event> events();
 
-    void setRulesFromJSON(JSONValue const& value);
-    void setGameDataFromJSON(JSONValue const& value);
-    void processEventFromJSON(JSONValue const& value);
-    void processEventsFromJSON(JSONValue const& value);
+    void setRulesFromJSON(json::Value const& value);
+    void setGameDataFromJSON(json::Value const& value);
+    void processEventFromJSON(json::Value const& value);
+    void processEventsFromJSON(json::Value const& value);
 
     // Game event handlers
     void moveUnit(std::string const& unitId, std::string const& tileId, Path const& path);
@@ -237,9 +240,9 @@ namespace wars
   private:
     static std::unordered_map<std::string, State> const STATE_NAMES;
 
-    std::string updateTileFromJSON(JSONValue const& value);
-    std::string updateUnitFromJSON(JSONValue const& value);
-    int updatePlayerFromJSON(JSONValue const& value);
+    std::string updateTileFromJSON(json::Value const& value);
+    std::string updateUnitFromJSON(json::Value const& value);
+    int updatePlayerFromJSON(json::Value const& value);
 
     std::string gameId;
     std::string authorId;

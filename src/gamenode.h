@@ -36,13 +36,13 @@ typedef struct gamenodeEvent {
     struct
     {
       long id;
-      struct JSON_Value* value;
+      chckJson* value;
     } response;
     struct
     {
       long id;
       char const* methodName;
-      struct JSON_Value* params;
+      chckJson* params;
     } methodCall;
   };
 } gamenodeEvent;
@@ -65,8 +65,8 @@ void* gamenodeUserData(gamenode* gn);
 
 void gamenodeSetMethodNames(gamenode* gn, const char** methodNames, unsigned int numMethodNames);
 
-long int gamenodeMethodCall(gamenode* gn, char const* methodName, struct JSON_Value* params);
-void gamenodeResponse(gamenode* gn, long int msgId, struct JSON_Value* value);
+long int gamenodeMethodCall(gamenode* gn, char const* methodName, chckJson* params);
+void gamenodeResponse(gamenode* gn, long int msgId, chckJson* value);
 
 #ifdef __cplusplus
 }

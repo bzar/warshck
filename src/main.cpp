@@ -22,28 +22,29 @@ int main(int argc, char** argv)
   std::string const user = argv[4];
   std::string const pass = argv[5];
 
-  lws_set_log_level(LLL_DEBUG | LLL_INFO | LLL_PARSER | LLL_HEADER | LLL_CLIENT, nullptr);
+  lws_set_log_level(LLL_DEBUG | LLL_INFO | LLL_PARSER | LLL_HEADER | LLL_CLIENT | LLL_WARN | LLL_ERR | LLL_COUNT, nullptr);
   bool running = true;
   Gamenode gn;
   wars::Game game;
 
   auto connectedSub = gn.connected().on([&gn, &gameId, &user, &pass, &game]() {
     std::cout << "Connected, logging in" << std::endl;
-    JSONValue credentials = JSONValue::object();
-    credentials.set("username", JSONValue::string(user));
-    credentials.set("password", JSONValue::string(pass));
+    json::Value credentials = json::Value::object({
+                                                    {"username", user},
+                                                    {"password", pass}
+                                                  });
 
-    gn.call("newSession", credentials).then<JSONValue>([&gn, &gameId](JSONValue const& response) {
+    gn.call("newSession", credentials).then<json::Value>([&gn, &gameId](json::Value const& response) {
       std::cout << "Got response to login: " << response.toString() << std::endl;
-      return gn.call("subscribeGame", JSONValue::string(gameId));
-    }).then<JSONValue>([&gn, &gameId](JSONValue const& response) {
+      return gn.call("subscribeGame", json::Value(gameId));
+    }).then<json::Value>([&gn, &gameId](json::Value const& response) {
       std::cout << "Subscribed to game" << std::endl;
-      return gn.call("gameRules", JSONValue::string(gameId));
-    }).then<JSONValue>([&gn, &gameId, &game](JSONValue const& response) {
+      return gn.call("gameRules", json::Value(gameId));
+    }).then<json::Value>([&gn, &gameId, &game](json::Value const& response) {
       std::cout << "Got game rules" << std::endl;
       game.setRulesFromJSON(response);
-      return gn.call("gameData", JSONValue::string(gameId));
-    }).then<void>([&gn, &game](JSONValue const& response) {
+      return gn.call("gameData", json::Value(gameId));
+    }).then<void>([&gn, &game](json::Value const& response) {
       std::cout << "Got game data" << std::endl;
       game.setGameDataFromJSON(response);
     });
@@ -54,57 +55,57 @@ int main(int argc, char** argv)
   });
 
   //Skeleton::playerJoined = (gameId, playerNumber, playerName, isMe) ->
-  gn.onVoidMethod("playerJoined", [](JSONValue const& params) {
+  gn.onVoidMethod("playerJoined", [](json::Value const& params) {
     std::cout << "playerJoined " << params.toString() << std::endl;
   });
   //Skeleton::playerLeft = (gameId, playerNumber) ->
-  gn.onVoidMethod("playerLeft", [](JSONValue const& params) {
+  gn.onVoidMethod("playerLeft", [](json::Value const& params) {
     std::cout << "playerLeft" << params.toString() << std::endl;
   });
 
   //Skeleton::playerTeamChanged = (gameId, playerNumber, teamNumber, playerName, isMe) ->
-  gn.onVoidMethod("playerTeamChanged", [](JSONValue const& params) {
+  gn.onVoidMethod("playerTeamChanged", [](json::Value const& params) {
     std::cout << "playerTeamChanged" << params.toString() << std::endl;
   });
 
   //Skeleton::bannedUnits = (unitTypes) ->
-  gn.onVoidMethod("bannedUnits", [](JSONValue const& params) {
+  gn.onVoidMethod("bannedUnits", [](json::Value const& params) {
     std::cout << "bannedUnits" << params.toString() << std::endl;
   });
 
   //Skeleton::gameStarted = (gameId) ->
-  gn.onVoidMethod("gameStarted", [](JSONValue const& params) {
+  gn.onVoidMethod("gameStarted", [](json::Value const& params) {
     std::cout << "gameStarted" << params.toString() << std::endl;
   });
 
   //Skeleton::gameFinished = (gameId) ->
-  gn.onVoidMethod("gameFinished", [](JSONValue const& params) {
+  gn.onVoidMethod("gameFinished", [](json::Value const& params) {
     std::cout << "gameFinished" << params.toString() << std::endl;
   });
 
   //Skeleton::gameTurnChange = (gameId, newTurn, newRound, turnRemaining) ->
-  gn.onVoidMethod("gameTurnChange", [](JSONValue const& params) {
+  gn.onVoidMethod("gameTurnChange", [](json::Value const& params) {
     std::cout << "gameTurnChange" << params.toString() << std::endl;
   });
 
   //Skeleton::gameEvents = (gameId, events) ->
-  gn.onVoidMethod("gameEvents", [&gn, &game](JSONValue const& params) {
-    JSONValue events = params.at(1);
+  gn.onVoidMethod("gameEvents", [&gn, &game](json::Value const& params) {
+    json::Value events = params.at(1);
     game.processEventsFromJSON(events);
   });
 
   //Skeleton::chatMessage = (messageInfo) ->
-  gn.onVoidMethod("chatMessage", [](JSONValue const& params) {
+  gn.onVoidMethod("chatMessage", [](json::Value const& params) {
     std::cout << "chatMessage" << params.toString() << std::endl;
   });
 
   //Skeleton::addInvite = (gameId) ->
-  gn.onVoidMethod("addInvite", [](JSONValue const& params) {
+  gn.onVoidMethod("addInvite", [](json::Value const& params) {
     std::cout << "addInvite" << params.toString() << std::endl;
   });
 
   //Skeleton::removeInvite = (gameId) ->
-  gn.onVoidMethod("remoteInvite", [](JSONValue const& params) {
+  gn.onVoidMethod("remoteInvite", [](json::Value const& params) {
     std::cout << "remoteInvite " << params.toString() << std::endl;
   });
 

@@ -7,9 +7,6 @@
 [submodule "lib/libsocketio"]
 	path = lib/libsocketio
         url = https://github.com/bzar/libsocketio.git
-[submodule "lib/json"]
-	path = lib/json
-	url = https://github.com/bzar/json.git
 [submodule "lib/glhck"]
 	path = lib/glhck
 	url = https://github.com/Cloudef/glhck.git
@@ -19,3 +16,6 @@
 [submodule "lib/glfwhck"]
 	path = lib/glfwhck
 	url = http://github.com/bzar/glfwhck.git
+[submodule "lib/chck"]
+	path = lib/chck
+	url = https://github.com/bzar/chck.git

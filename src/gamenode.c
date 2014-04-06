@@ -258,7 +258,7 @@ const char* LWS_EXT_CALLBACK_STR[] = {
 
 static void queueDataForSending(gamenode* gn, char const* data)
 {
-  //printf("Queuing data: %s\n", data);
+  printf("Queuing data: %s\n", data);
   size_t qdSize = sizeof(queueData);
   struct queueData* qData = calloc(2, qdSize);
   qData->size = strlen(data);
@@ -271,22 +271,12 @@ static void queueDataForSending(gamenode* gn, char const* data)
   *last = qData;
 }
 
-long int sendMessage(gamenode* gn, long msgId, struct JSON_Value* msg)
+long int sendMessage(gamenode* gn, long msgId, chckJson* msg)
 {
-  long size = 1024;
-  long length;
-  char* msgData = NULL;
-  do
-  {
-    if(msgData)
-    {
-      free(msgData);
-    }
-    msgData = JSON_Encode(msg, size, &length);
-    size *= 2;
-  } while(size == length);
-
-  char* msgStr = calloc(size, sizeof(char));
+  size_t size;
+  char* msgData = chckJsonEncode(msg, &size);
+  int headerSize = snprintf(NULL, 0, "3:%d::", msgId);
+  char* msgStr = calloc(size + headerSize, sizeof(char));
   sprintf(msgStr, "3:%d::", msgId);
   strcat(msgStr, msgData);
   free(msgData);
@@ -298,32 +288,32 @@ long int sendMessage(gamenode* gn, long msgId, struct JSON_Value* msg)
 
 void sendMethodList(gamenode* gn)
 {
-  struct JSON_Value* methods = JSON_Value_New_Array();
+  chckJson* methods = chckJsonNew(CHCK_JSON_TYPE_ARRAY);
 
   int i;
   for (i = 0; i < gn->numMethodNames; ++i)
   {
-    JSON_Array_Append(methods, JSON_Value_New_String(gn->methodNames[i]));
+    chckJsonChildAppend(methods, chckJsonNewString(gn->methodNames[i]));
   }
 
   long msgId = gn->gamenodeMessageId++;
 
-  struct JSON_Value* msg = JSON_Value_New_Object();
-  JSON_Object_Set_Property(msg,  "id", JSON_Value_New_Number(msgId));
-  JSON_Object_Set_Property(msg,  "type", JSON_Value_New_String("methodList"));
-  JSON_Object_Set_Property(msg,  "content", methods);
+  chckJson* msg = chckJsonNew(CHCK_JSON_TYPE_OBJECT);
+  chckJsonProperty(msg,  "id", chckJsonNewNumberLong(msgId));
+  chckJsonProperty(msg,  "type", chckJsonNewString("methodList"));
+  chckJsonProperty(msg,  "content", methods);
 
   sendMessage(gn, msgId, msg);
 
-  JSON_Value_Free(msg);
+  chckJsonFreeAll(msg);
 }
 
 static int callback_gamenode(struct libwebsocket_context *context, struct libwebsocket *wsi,
                              enum libwebsocket_callback_reasons reason, void *user, void *in, size_t len)
 {
   gamenode* gn = (gamenode*) libwebsocket_context_user(context);
-  //if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
-    //printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);
+  if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
+    printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);
 
   // Request write for heartbeat if necessary
   time_t now;
@@ -402,30 +392,32 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
         case LSIO_PACKET_TYPE_HEARTBEAT:break;
         case LSIO_PACKET_TYPE_MESSAGE:
         {
-          struct JSON_Value* msg = JSON_Decode(packet->data);
-          struct JSON_Value* msgType = JSON_Object_Get_Property(msg, "type");
+          chckJsonDecoder* decoder = chckJsonDecoderNew();
+          chckJson* msg = chckJsonDecoderDecode(decoder, packet->data);
+          chckJsonDecoderFree(decoder);
+          chckJson* msgType = chckJsonGetProperty(msg, "type");
           //printf("msgType = %s\n", msgType->string_value);
-          if(strcmp(msgType->string_value, "response") == 0)
+          if(strcmp(chckJsonGetString(msgType), "response") == 0)
           {
             gamenodeEvent event;
             event.type = GAMENODE_RESPONSE;
-            event.response.id = JSON_Object_Get_Property(msg, "id")->number_value;
-            event.response.value = JSON_Object_Get_Property(msg, "content");
+            event.response.id = chckJsonGetLong(chckJsonGetProperty(msg, "id"));
+            event.response.value = chckJsonGetProperty(msg, "content");
             gn->callback(gn, &event);
           }
-          else if(strcmp(msgType->string_value, "call") == 0)
+          else if(strcmp(chckJsonGetString(msgType), "call") == 0)
           {
             gamenodeEvent event;
             event.type = GAMENODE_METHOD_CALL;
-            event.methodCall.id = JSON_Object_Get_Property(msg, "id")->number_value;
-            event.methodCall.methodName= JSON_Object_Get_Property(msg, "method")->string_value;
-            event.methodCall.params = JSON_Object_Get_Property(msg, "params");
+            event.methodCall.id = chckJsonGetLong(chckJsonGetProperty(msg, "id"));
+            event.methodCall.methodName= chckJsonGetString(chckJsonGetProperty(msg, "method"));
+            event.methodCall.params = chckJsonGetProperty(msg, "params");
             gn->callback(gn, &event);
           }
-          else if(strcmp(msgType->string_value, "methodList") == 0)
+          else if(strcmp(chckJsonGetString(msgType), "methodList") == 0)
           {
           }
-          JSON_Value_Free(msg);
+          chckJsonFreeAll(msg);
           break;
         }
         case LSIO_PACKET_TYPE_JSON_MESSAGE: break;
@@ -455,7 +447,15 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
       while(gn->writeQueue)
       {
         queueData* d = gn->writeQueue;
-        printf("Sending data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
+        if(d->sent)
+        {
+
+          printf("Resuming data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
+        }
+        else
+        {
+          printf("Sending data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
+        }
         d->sent += libwebsocket_write(wsi, d->data + LWS_SEND_BUFFER_PRE_PADDING + d->sent, d->size - d->sent, LWS_WRITE_TEXT);
 
         if(d->sent < d->size)
@@ -530,40 +530,40 @@ void gamenodeSetMethodNames(gamenode* gn, const char** methodNames, unsigned int
   }
 }
 
-long gamenodeMethodCall(gamenode* gn, const char* methodName, struct JSON_Value* params)
+long gamenodeMethodCall(gamenode* gn, const char* methodName, chckJson* params)
 {
-  struct JSON_Value* msg = JSON_Value_New_Object();
+  chckJson* msg = chckJsonNew(CHCK_JSON_TYPE_OBJECT);
   long msgId = gn->gamenodeMessageId++;
-  JSON_Object_Set_Property(msg,  "id", JSON_Value_New_Number(msgId));
-  JSON_Object_Set_Property(msg,  "type", JSON_Value_New_String("call"));
-  JSON_Object_Set_Property(msg,  "method", JSON_Value_New_String(methodName));
+  chckJsonProperty(msg,  "id", chckJsonNewNumberLong(msgId));
+  chckJsonProperty(msg,  "type", chckJsonNewString("call"));
+  chckJsonProperty(msg,  "method", chckJsonNewString(methodName));
 
-  if(params->type == JSON_VALUE_TYPE_ARRAY)
+  if(chckJsonGetType(params) == CHCK_JSON_TYPE_ARRAY)
   {
-    JSON_Object_Set_Property(msg,  "params", params);
+    chckJsonProperty(msg,  "params", params);
   }
   else
   {
-    struct JSON_Value* paramArray = JSON_Value_New_Array();
-    JSON_Array_Append(paramArray, params);
-    JSON_Object_Set_Property(msg,  "params", paramArray);
+    chckJson* paramArray = chckJsonNew(CHCK_JSON_TYPE_ARRAY);
+    chckJsonChildAppend(paramArray, params);
+    chckJsonProperty(msg,  "params", paramArray);
   }
 
   sendMessage(gn, msgId, msg);
-  JSON_Value_Free(msg);
+  chckJsonFreeAll(msg);
   return msgId;
 }
 
 
-void gamenodeResponse(gamenode* gn, long int msgId, struct JSON_Value* value)
+void gamenodeResponse(gamenode* gn, long int msgId, chckJson* value)
 {
-  struct JSON_Value* msg = JSON_Value_New_Object();
-  JSON_Object_Set_Property(msg,  "id", JSON_Value_New_Number(msgId));
-  JSON_Object_Set_Property(msg,  "type", JSON_Value_New_String("response"));
-  JSON_Object_Set_Property(msg,  "content", value);
+  chckJson* msg = chckJsonNew(CHCK_JSON_TYPE_OBJECT);
+  chckJsonProperty(msg,  "id", chckJsonNewNumberLong(msgId));
+  chckJsonProperty(msg,  "type", chckJsonNewString("response"));
+  chckJsonProperty(msg,  "content", value);
 
   sendMessage(gn, ++gn->gamenodeMessageId, msg);
-  JSON_Value_Free(msg);
+  chckJsonFreeAll(msg);
 }
 
 void gamenodeSetUserData(gamenode* gn, void* data)
