@@ -110,12 +110,12 @@ private:
         gnpp->_connected.push();
         break;
       }
-      case GAMENODE_DISCONNECTED: break;
+      case GAMENODE_DISCONNECTED:
       {
         gnpp->_disconnected.push();
         break;
       }
-      case GAMENODE_ERROR: break;
+      case GAMENODE_ERROR:
       {
         gnpp->_error.push();
         break;
