@@ -13,7 +13,6 @@
 typedef struct queueData {
   char* data;
   int size;
-  int sent;
   struct queueData* next;
 } queueData;
 
@@ -210,9 +209,14 @@ void gamenodeDisconnect(gamenode* gn)
 
 char gamenodeHandle(gamenode* gn)
 {
-  if (gn->writeQueue)
+  if(lws_send_pipe_choked(gn->ws))
+  {
+    printf("Send pipe congested, skipping send\n");
+  }
+  else if (gn->writeQueue)
+  {
     libwebsocket_callback_on_writable(gn->wsCtx, gn->ws);
-
+  }
   return libwebsocket_service(gn->wsCtx, 0);
 }
 
@@ -258,7 +262,7 @@ const char* LWS_EXT_CALLBACK_STR[] = {
 
 static void queueDataForSending(gamenode* gn, char const* data)
 {
-  printf("Queuing data: %s\n", data);
+  //printf("Queuing data: %s\n", data);
   size_t qdSize = sizeof(queueData);
   struct queueData* qData = calloc(2, qdSize);
   qData->size = strlen(data);
@@ -363,7 +367,7 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
         buffer = gn->readBuffer;
       }
 
-      printf("Received: %s\n", buffer);
+      //printf("Received: %s\n", buffer);
       lsio_packet_t* packet = calloc(1, sizeof(lsio_packet_t));
       lsio_packet_init(packet);
 
@@ -444,26 +448,10 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
     case LWS_CALLBACK_CLIENT_RECEIVE_PONG: break;
     case LWS_CALLBACK_CLIENT_WRITEABLE:
     {
-      while(gn->writeQueue)
+      while(gn->writeQueue && !lws_send_pipe_choked(wsi))
       {
         queueData* d = gn->writeQueue;
-        if(d->sent)
-        {
-
-          printf("Resuming data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
-        }
-        else
-        {
-          printf("Sending data: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
-        }
-        d->sent += libwebsocket_write(wsi, d->data + LWS_SEND_BUFFER_PRE_PADDING + d->sent, d->size - d->sent, LWS_WRITE_TEXT);
-
-        if(d->sent < d->size)
-        {
-          // partial write, don't attempt to send the rest yet
-          break;
-        }
-
+        libwebsocket_write(wsi, d->data + LWS_SEND_BUFFER_PRE_PADDING, d->size, LWS_WRITE_TEXT);
         gn->writeQueue = d->next;
         free(d->data);
         free(d);
