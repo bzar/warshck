@@ -748,19 +748,19 @@ void wars::GlhckView::loadTheme(const std::string& themeFile)
   json::Value v = json::Value::parseFile(themeFile);
 
   json::Value xb = v.get("base").get("x");
-  _theme.base.x.x = xb.at(0).longValue();
-  _theme.base.x.y = xb.at(1).longValue();
-  _theme.base.x.z = xb.at(2).longValue();
+  _theme.base.x.x = xb.at(0).doubleValue();
+  _theme.base.x.y = xb.at(1).doubleValue();
+  _theme.base.x.z = xb.at(2).doubleValue();
 
   json::Value yb = v.get("base").get("y");
-  _theme.base.y.x = yb.at(0).longValue();
-  _theme.base.y.y = yb.at(1).longValue();
-  _theme.base.y.z = yb.at(2).longValue();
+  _theme.base.y.x = yb.at(0).doubleValue();
+  _theme.base.y.y = yb.at(1).doubleValue();
+  _theme.base.y.z = yb.at(2).doubleValue();
 
   json::Value zb = v.get("base").get("z");
-  _theme.base.z.x = zb.at(0).longValue();
-  _theme.base.z.y = zb.at(1).longValue();
-  _theme.base.z.z = zb.at(2).longValue();
+  _theme.base.z.x = zb.at(0).doubleValue();
+  _theme.base.z.y = zb.at(1).doubleValue();
+  _theme.base.z.z = zb.at(2).doubleValue();
 
   _theme.playerColors.clear();
   json::Value pc = v.get("playerColors");
@@ -785,9 +785,9 @@ void wars::GlhckView::loadTheme(const std::string& themeFile)
     json::Value o = t.get("offset");
     if(o.type() != json::Value::Type::NONE)
     {
-      tile.offset.x = o.at(0).longValue();
-      tile.offset.y = o.at(1).longValue();
-      tile.offset.z = o.at(2).longValue();
+      tile.offset.x = o.at(0).doubleValue();
+      tile.offset.y = o.at(1).doubleValue();
+      tile.offset.z = o.at(2).doubleValue();
     }
     json::Value prop = t.get("prop");
     if(prop.type() != json::Value::Type::NONE)
