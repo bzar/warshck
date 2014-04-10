@@ -207,13 +207,33 @@ void gamenodeDisconnect(gamenode* gn)
   }
 }
 
+static void queueDataForSending(gamenode* gn, char const* data)
+{
+  //printf("Queuing data: %s\n", data);
+  size_t qdSize = sizeof(queueData);
+  struct queueData* qData = calloc(2, qdSize);
+  qData->size = strlen(data);
+  qData->data = calloc(1, LWS_SEND_BUFFER_PRE_PADDING + qData->size + LWS_SEND_BUFFER_POST_PADDING);
+  strcpy(qData->data + LWS_SEND_BUFFER_PRE_PADDING, data);
+  qData->next = NULL;
+  // Find end of queue and append
+  queueData** last = &gn->writeQueue;
+  while(*last) last = &(*last)->next;
+  *last = qData;
+}
+
 char gamenodeHandle(gamenode* gn)
 {
-  if(lws_send_pipe_choked(gn->ws))
+  // Request write for heartbeat if necessary
+  time_t now;
+  time(&now);
+  if(now - gn->sioPreviousHeartbeat > gn->sioHeartbeatInterval / 2)
   {
-    printf("Send pipe congested, skipping send\n");
+    queueDataForSending(gn, "2:::");
+    gn->sioPreviousHeartbeat = now;
   }
-  else if (gn->writeQueue)
+
+  if (gn->writeQueue)
   {
     libwebsocket_callback_on_writable(gn->wsCtx, gn->ws);
   }
@@ -260,21 +280,6 @@ const char* LWS_EXT_CALLBACK_STR[] = {
   "LWS_CALLBACK_USER"
 };
 
-static void queueDataForSending(gamenode* gn, char const* data)
-{
-  //printf("Queuing data: %s\n", data);
-  size_t qdSize = sizeof(queueData);
-  struct queueData* qData = calloc(2, qdSize);
-  qData->size = strlen(data);
-  qData->data = calloc(1, LWS_SEND_BUFFER_PRE_PADDING + qData->size + LWS_SEND_BUFFER_POST_PADDING);
-  strcpy(qData->data + LWS_SEND_BUFFER_PRE_PADDING, data);
-  qData->next = NULL;
-  // Find end of queue and append
-  queueData** last = &gn->writeQueue;
-  while(*last) last = &(*last)->next;
-  *last = qData;
-}
-
 long int sendMessage(gamenode* gn, long msgId, chckJson* msg)
 {
   size_t size;
@@ -319,19 +324,10 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
   if(reason != LWS_CALLBACK_GET_THREAD_ID && reason != LWS_CALLBACK_LOCK_POLL)
     printf("%s\n", LWS_EXT_CALLBACK_STR[reason]);
 
-  // Request write for heartbeat if necessary
-  time_t now;
-  time(&now);
-  if(wsi && now - gn->sioPreviousHeartbeat > gn->sioHeartbeatInterval / 2)
-  {
-    queueDataForSending(gn, "2:::");
-    gn->sioPreviousHeartbeat = now;
-  }
-
   switch(reason)
   {
     case LWS_CALLBACK_ESTABLISHED: break;
-    case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: break;
+    case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
     {
       gamenodeEvent event;
       event.type = GAMENODE_ERROR;
@@ -427,7 +423,7 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
         case LSIO_PACKET_TYPE_JSON_MESSAGE: break;
         case LSIO_PACKET_TYPE_EVENT: break;
         case LSIO_PACKET_TYPE_ACK: break;
-        case LSIO_PACKET_TYPE_ERROR: break;
+        case LSIO_PACKET_TYPE_ERROR:
         {
           gamenodeEvent event;
           event.type = GAMENODE_ERROR;
@@ -443,18 +439,24 @@ static int callback_gamenode(struct libwebsocket_context *context, struct libweb
         free(gn->readBuffer);
         gn->readBuffer = NULL;
       }
+      //printf("LWS_CALLBACK_CLIENT_RECEIVE handled\n");
       break;
     }
     case LWS_CALLBACK_CLIENT_RECEIVE_PONG: break;
     case LWS_CALLBACK_CLIENT_WRITEABLE:
     {
-      while(gn->writeQueue && !lws_send_pipe_choked(wsi))
+      while(gn->writeQueue)
       {
         queueData* d = gn->writeQueue;
+        if(lws_send_pipe_choked(wsi))
+        {
+          printf("Send pipe congested while tried to write, skipping sending: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
+          break;
+        }
+        //printf("Sending: %s\n", d->data + LWS_SEND_BUFFER_PRE_PADDING);
         libwebsocket_write(wsi, d->data + LWS_SEND_BUFFER_PRE_PADDING, d->size, LWS_WRITE_TEXT);
         gn->writeQueue = d->next;
         free(d->data);
-        free(d);
       }
       break;
     }

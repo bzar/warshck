@@ -41,7 +41,7 @@ public:
   {
     _methods[methodName] = [method](json::Value const& v) mutable {
       method(v);
-      return json::Value();
+      return json::Value::null();
     };
 
     std::vector<const char*> methodList;
