@@ -47,8 +47,8 @@ void wars::GlhckView::term()
   glfwTerminate();
 }
 
-wars::GlhckView::GlhckView(Gamenode* gn) :
-  _gn(gn), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu()
+wars::GlhckView::GlhckView(Input* input) :
+  _input(input), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu()
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
@@ -637,10 +637,8 @@ void wars::GlhckView::handleKey(int key)
       {
         std::cout << "Build unit id " << result << std::endl;
         Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
-        json::Value params = {_game->getGameId(), result,
-                              json::Value::object({{"x", tile.x}, {"y", tile.y}})};
-        _gn->call("build", params).then<void>([](json::Value const& v) {
-          std::cout << "build command result" << v.toString() << std::endl;
+        _input->build(_game->getGameId(), tile.x, tile.y, result).then<void>([](bool const& success) {
+          std::cout << "Build " << (success ? "SUCCESS" : "FAILURE") << std::endl;
         });
         _phase = Phase::SELECT;
         _menu.clear();

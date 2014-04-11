@@ -7,6 +7,7 @@
 #include "game.h"
 #include "loggerview.h"
 #include "glhckview.h"
+#include "input.h"
 
 int main(int argc, char** argv)
 {
@@ -22,7 +23,7 @@ int main(int argc, char** argv)
   std::string const user = argv[4];
   std::string const pass = argv[5];
 
-  lws_set_log_level(LLL_DEBUG | LLL_INFO | LLL_PARSER | LLL_HEADER | LLL_CLIENT | LLL_WARN | LLL_ERR | LLL_COUNT, nullptr);
+  lws_set_log_level(LLL_NOTICE | LLL_LATENCY | LLL_EXT | LLL_DEBUG | LLL_INFO | LLL_PARSER | LLL_HEADER | LLL_CLIENT | LLL_WARN | LLL_ERR | LLL_COUNT, nullptr);
   bool running = true;
   Gamenode gn;
   wars::Game game;
@@ -51,6 +52,7 @@ int main(int argc, char** argv)
   });
 
   auto disconnectedSub = gn.disconnected().on([&running]() {
+    std::cout << "Disconnected, exiting" << std::endl;
     running = false;
   });
 
@@ -120,8 +122,20 @@ int main(int argc, char** argv)
   wars::LoggerView logger;
   logger.setGame(&game);
 
+  wars::Input input;
+
+  auto buildSub = input.events.build.on([&gn](wars::Input::Build const& event) {
+    json::Value params = {event.gameId, event.type,
+                          json::Value::object({{"x", event.x}, {"y", event.y}})};
+    Promise<bool> result = event.result;
+    std::cout << "Sending build command with parameters " << params.toString() << std::endl;
+    gn.call("build", params).then<void>([result](json::Value const& v) mutable {
+      result.fulfill(v.get("success").booleanValue());
+    });
+  });
+
   wars::GlhckView::init(argc, argv);
-  wars::GlhckView view(&gn);
+  wars::GlhckView view(&input);
   view.setGame(&game);
 
   while(running)

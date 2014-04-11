@@ -4,7 +4,7 @@
 #include "view.h"
 #include "glhck/glhck.h"
 #include "GLFW/glfw3.h"
-#include "gamenodepp.h"
+#include "input.h"
 #include "glfwhck.h"
 #include "jsonpp.h"
 #include "textmenu.h"
@@ -21,7 +21,7 @@ namespace wars
     static void init(int argc, char** argv);
     static void term();
 
-    GlhckView(Gamenode* gn);
+    GlhckView(Input* input);
     ~GlhckView();
 
     void setGame(Game* game) override;
@@ -114,7 +114,7 @@ namespace wars
 
     void loadTheme(std::string const& themeFile);
 
-    Gamenode* _gn;
+    Input* _input;
     Game* _game;
     Stream<wars::Game::Event>::Subscription eventSub;
     GLFWwindow* _window;
