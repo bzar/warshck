@@ -777,6 +777,10 @@ wars::Game::Path wars::Game::findUnitPath(const std::string& unitId, const wars:
       if(cost > unitType.movement)
         continue;
 
+      // Reject if contains enemy unit
+      if(!tile->unitId.empty() && unit.owner != getUnit(tile->unitId).owner)
+        continue;
+
       // Check if already in queue
       auto existingIter = std::find_if(nodes.begin(), nodes.end(), [&neighborPos](Node const& n) {
         return std::get<1>(n) == neighborPos;

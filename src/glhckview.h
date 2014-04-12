@@ -68,6 +68,7 @@ namespace wars
         std::string tileId = "";
         std::string unitId = "";
         std::string carrierId = "";
+        int carriedIndex = 0;
       } selected;
 
       bool acceptInput = false;
@@ -137,7 +138,7 @@ namespace wars
 
     enum class Phase { WAIT, SELECT, MOVE, ACTION, ATTACK, UNLOAD_UNIT, UNLOAD_TILE, BUILD };
     Phase _phase = Phase::SELECT;
-    enum Action : int { CANCEL = 0, WAIT, ATTACK, CAPTURE, DEPLOY, UNDEPLOY };
+    enum Action : int { CANCEL = 0, WAIT, ATTACK, CAPTURE, DEPLOY, UNDEPLOY, LOAD, UNLOAD };
     TextMenu _menu;
     glhckText* _statusText;
     unsigned int _statusFont;

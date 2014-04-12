@@ -558,6 +558,7 @@ void wars::GlhckView::handleClick()
               if(unit.deployed /* TODO: or cannot move */)
               {
                 _phase = Phase::ACTION;
+                _inputState.selected.tileId = tile->id;
                 initializeActionMenu();
 
               }
@@ -574,8 +575,7 @@ void wars::GlhckView::handleClick()
 
     case Phase::ACTION:
     {
-      _phase = Phase::SELECT;
-      break;
+     break;
     }
 
     case Phase::MOVE:
@@ -585,10 +585,37 @@ void wars::GlhckView::handleClick()
       initializeActionMenu();
       break;
     }
+
     case Phase::ATTACK:
     {
+      Game::Tile const* enemyTile = _game->getTileAt(_inputState.hexCursor.x,
+                                                _inputState.hexCursor.y);
+      if(enemyTile->unitId.empty())
+      {
+        _phase = Phase::SELECT;
+      }
+      else
+      {
+        Game::Unit const& enemyUnit = _game->getUnit(enemyTile->unitId);
+        Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+        Game::Path path = _game->findUnitPath(_inputState.selected.unitId, {tile.x, tile.y});
+        if(path.empty())
+        {
+          // Cannot move to location
+          _phase = Phase::SELECT;
+        }
+        else
+        {
+          _phase = Phase::WAIT;
+          _input->moveAttack(_game->getGameId(), _inputState.selected.unitId, enemyUnit.id, {tile.x, tile.y}, convertPath(path)).then<void>([this](bool success) {
+            std::cout << "moveAttack " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+            _phase = Phase::SELECT;
+          });
+        }
+      }
       break;
     }
+
     case Phase::UNLOAD_UNIT:
     {
       _phase = Phase::SELECT;
@@ -655,7 +682,7 @@ void wars::GlhckView::handleKey(int key)
           }
           case Action::ATTACK:
           {
-
+            _phase = Phase::ATTACK;
             break;
           }
           case Action::CAPTURE:
@@ -675,18 +702,73 @@ void wars::GlhckView::handleKey(int key)
                 _phase = Phase::SELECT;
               });
             }
-
-
             break;
           }
           case Action::DEPLOY:
           {
-
+            Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+            Game::Path path = _game->findUnitPath(_inputState.selected.unitId, {tile.x, tile.y});
+            if(path.empty())
+            {
+              // Cannot move to location
+              _phase = Phase::SELECT;
+            }
+            else
+            {
+              _phase = Phase::WAIT;
+              _input->moveDeploy(_game->getGameId(), _inputState.selected.unitId, {tile.x, tile.y}, convertPath(path)).then<void>([this](bool success) {
+                std::cout << "moveDeploy " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+                _phase = Phase::SELECT;
+              });
+            }
             break;
           }
           case Action::UNDEPLOY:
           {
+            _phase = Phase::WAIT;
+            _input->undeploy(_game->getGameId(), _inputState.selected.unitId).then<void>([this](bool success) {
+              std::cout << "undeploy " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+              _phase = Phase::SELECT;
+            });
+            break;
+          }
+          case Action::LOAD:
+          {
+            Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+            Game::Path path = _game->findUnitPath(_inputState.selected.unitId, {tile.x, tile.y});
+            if(path.empty())
+            {
+              // Cannot move to location
+              _phase = Phase::SELECT;
+            }
+            else
+            {
+              _phase = Phase::WAIT;
+              _input->moveLoad(_game->getGameId(), _inputState.selected.unitId, _inputState.selected.carrierId, convertPath(path)).then<void>([this](bool success) {
+                std::cout << "moveDeploy " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+                _phase = Phase::SELECT;
+              });
+            }
 
+            break;
+          }
+          case Action::UNLOAD:
+          {
+            Game::Unit const& unit = _game->getUnit(_inputState.selected.unitId);
+            if(unit.carriedUnits.empty())
+            {
+              _phase = Phase::SELECT;
+            }
+            else
+            {
+              _phase = Phase::UNLOAD_UNIT;
+              _menu.clear();
+              for(int i = 0; i < unit.carriedUnits.size(); ++i)
+              {
+                _menu.addOption(i, unit.carriedUnits.at(i), i);
+              }
+              _menu.update();
+            }
             break;
           }
           default:
@@ -708,6 +790,14 @@ void wars::GlhckView::handleKey(int key)
     }
     case Phase::UNLOAD_UNIT:
     {
+      int result;
+      if(_menu.input(key, &result))
+      {
+        _inputState.selected.carriedIndex = result;
+        _phase = Phase::UNLOAD_TILE;
+        _menu.clear();
+        _menu.update();
+      }
       break;
     }
     case Phase::UNLOAD_TILE:
@@ -747,6 +837,8 @@ void wars::GlhckView::initializeActionMenu()
   _menu.addOption(Action::CAPTURE, "Capture");
   _menu.addOption(Action::DEPLOY, "Deploy");
   _menu.addOption(Action::UNDEPLOY, "Undeploy");
+  _menu.addOption(Action::LOAD, "Load");
+  _menu.addOption(Action::UNLOAD, "Unload");
   _menu.update();
 }
 
