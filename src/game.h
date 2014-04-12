@@ -22,6 +22,9 @@ namespace wars
     enum class State { PREGAME, IN_PROGRESS, FINISHED };
     struct Coordinates
     {
+      bool operator<(Coordinates const& other) const;
+      bool operator==(Coordinates const& other) const;
+
       int x;
       int y;
     };
@@ -236,6 +239,11 @@ namespace wars
     Tile const* getTileAt(int x, int y) const;
 
     std::string const& getGameId() const;
+
+    int distance(Coordinates const& a, Coordinates const& b) const;
+    Path findShortestPath(Coordinates const& a, Coordinates const& b) const;
+    Path findUnitPath(std::string const& unitId, Coordinates const& destination) const;
+    std::vector<Coordinates> neighborCoordinates(Coordinates const& pos) const;
 
   private:
     static std::unordered_map<std::string, State> const STATE_NAMES;

@@ -2,6 +2,9 @@
 #include <iostream>
 #include <sstream>
 #include <algorithm>
+#include <queue>
+#include <cmath>
+#include <map>
 
 #include "jsonpp.h"
 
@@ -583,6 +586,237 @@ const std::string& wars::Game::getGameId() const
   return gameId;
 }
 
+int wars::Game::distance(const wars::Game::Coordinates& a, const wars::Game::Coordinates& b) const
+{
+  int distance = 0;
+  Coordinates aa = a;
+  Coordinates bb = b;
+
+  if(a.x < b.x && a.y > b.y)
+  {
+    int diagonal = std::min(b.x - a.x, a.y - b.y);
+    aa.x += diagonal;
+    aa.y -= diagonal;
+    distance += diagonal;
+  }
+  else if(a.x > b.x && a.y < b.y)
+  {
+    int diagonal = std::min(a.x - b.x, b.y - a.y);
+    bb.x += diagonal;
+    bb.y -= diagonal;
+    distance += diagonal;
+  }
+  distance += std::abs(bb.x - aa.x);
+  distance += std::abs(bb.y - aa.y);
+  return distance;
+}
+
+wars::Game::Path wars::Game::findShortestPath(const wars::Game::Coordinates& a, const wars::Game::Coordinates& b) const
+{
+  std::map<Coordinates, Tile const*> grid;
+  for(auto const& item : tiles)
+  {
+    Coordinates pos = {item.second.x, item.second.y};
+    grid[pos] = &item.second;
+  }
+
+  if(grid.find(a) == grid.end() || grid.find(b) == grid.end())
+  {
+    return {};
+  }
+  typedef std::tuple<int, Coordinates, Coordinates, int> Node; // distance, tile, from, cost
+  std::vector<Node> nodes = {std::make_tuple(distance(a, b), a, a, 0)};
+
+  std::map<Coordinates, Node> visited;
+  Path path;
+
+  bool newNodes = false;
+  while(!nodes.empty())
+  {
+    // Get node
+    Node node = nodes.back();
+    nodes.pop_back();
+
+    // Add node to visited
+    Coordinates pos = {std::get<1>(node).x, std::get<1>(node).y};
+    visited[pos] = node;
+
+    // Check end condition
+    if(pos == b)
+    {
+      Node const* n = &node;
+      while(n != nullptr)
+      {
+        path.push_back(std::get<1>(*n));
+        n = std::get<1>(*n) == std::get<2>(*n) ? nullptr : &visited.at(std::get<2>(*n));
+      }
+      std::reverse(path.begin(), path.end());
+      break;
+    }
+    // Process neighbors
+    for(Coordinates neighborPos : neighborCoordinates(pos))
+    {
+      auto iter = grid.find(neighborPos);
+
+      // Reject if does not exist
+      if(iter == grid.end())
+        continue;
+
+      // Reject if visited
+      if(visited.find(neighborPos) != visited.end())
+        continue;
+
+      // Check if already in queue
+      auto existingIter = std::find_if(nodes.begin(), nodes.end(), [&neighborPos](Node const& n) {
+        return std::get<1>(n) == neighborPos;
+      });
+
+      // Determine cost
+      int cost = std::get<3>(node) + 1;
+
+      if(existingIter == nodes.end())
+      {
+        // Add node to queue if new position
+        nodes.push_back(std::make_tuple(distance(neighborPos, b), neighborPos, pos, cost));
+        newNodes = true;
+      }
+      else if(cost < std::get<3>(*existingIter))
+      {
+        // Update existing if shorter route
+        *existingIter = std::make_tuple(distance(neighborPos, b), neighborPos, pos, cost);
+        newNodes = true;
+      }
+    }
+
+    if(newNodes)
+    {
+      std::stable_sort(nodes.begin(), nodes.end());
+    }
+  }
+
+  return path;
+}
+
+wars::Game::Path wars::Game::findUnitPath(const std::string& unitId, const wars::Game::Coordinates& destination) const
+{
+  Unit const& unit = getUnit(unitId);
+  Tile const& startTile = getTile(unit.tileId);
+  Coordinates const start = {startTile.x, startTile.y};
+  UnitType const& unitType = rules.unitTypes.at(unit.type);
+  MovementType const& movementType = rules.movementTypes.at(unitType.movementType);
+
+  std::map<Coordinates, Tile const*> grid;
+  for(auto const& item : tiles)
+  {
+    Coordinates pos = {item.second.x, item.second.y};
+    grid[pos] = &item.second;
+  }
+
+  if(grid.find(destination) == grid.end())
+  {
+    return {};
+  }
+  typedef std::tuple<int, Coordinates, Coordinates, int> Node; // distance, tile, from, cost
+  std::vector<Node> nodes = {std::make_tuple(distance(start, destination), start, start, 0)};
+
+  std::map<Coordinates, Node> visited;
+  Path path;
+
+  bool newNodes = false;
+  while(!nodes.empty())
+  {
+    // Get node
+    Node node = nodes.back();
+    nodes.pop_back();
+
+    // Add node to visited
+    Coordinates pos = {std::get<1>(node).x, std::get<1>(node).y};
+    visited[pos] = node;
+
+    // Check end condition
+    if(pos == destination)
+    {
+      Node const* n = &node;
+      while(n != nullptr)
+      {
+        path.push_back(std::get<1>(*n));
+        n = std::get<1>(*n) == std::get<2>(*n) ? nullptr : &visited.at(std::get<2>(*n));
+      }
+      std::reverse(path.begin(), path.end());
+      break;
+    }
+    // Process neighbors
+    for(Coordinates neighborPos : neighborCoordinates(pos))
+    {
+      auto iter = grid.find(neighborPos);
+
+      // Reject if does not exist
+      if(iter == grid.end())
+        continue;
+
+      // Reject if visited
+      if(visited.find(neighborPos) != visited.end())
+        continue;
+
+      // Determine cost
+      Tile const* tile = iter->second;
+      int tileCost = 1;
+      auto effectIter = movementType.effectMap.find(tile->type);
+      if(effectIter != movementType.effectMap.end())
+      {
+        tileCost = effectIter->second;
+      }
+
+      // Reject if cannot traverse
+      if(tileCost < 0)
+        continue;
+
+      int cost = std::get<3>(node) + tileCost;
+
+      // Reject if not enough movement points
+      if(cost > unitType.movement)
+        continue;
+
+      // Check if already in queue
+      auto existingIter = std::find_if(nodes.begin(), nodes.end(), [&neighborPos](Node const& n) {
+        return std::get<1>(n) == neighborPos;
+      });
+
+      if(existingIter == nodes.end())
+      {
+        // Add node to queue if new position
+        nodes.push_back(std::make_tuple(distance(neighborPos, destination), neighborPos, pos, cost));
+        newNodes = true;
+      }
+      else if(cost < std::get<3>(*existingIter))
+      {
+        // Update existing if shorter route
+        *existingIter = std::make_tuple(distance(neighborPos, destination), neighborPos, pos, cost);
+        newNodes = true;
+      }
+    }
+
+    if(newNodes)
+    {
+      std::stable_sort(nodes.begin(), nodes.end());
+    }
+  }
+
+  return path;
+}
+
+std::vector<wars::Game::Coordinates> wars::Game::neighborCoordinates(const wars::Game::Coordinates& pos) const
+{
+  return {
+    {pos.x + 1, pos.y},
+    {pos.x - 1, pos.y},
+    {pos.x, pos.y + 1},
+    {pos.x, pos.y - 1},
+    {pos.x + 1, pos.y - 1},
+    {pos.x - 1, pos.y + 1},
+  };
+}
+
 std::string wars::Game::updateTileFromJSON(const json::Value& value)
 {
   Tile tile;
@@ -892,4 +1126,15 @@ namespace
     }
     return path;
   }
+}
+
+
+bool wars::Game::Coordinates::operator<(const wars::Game::Coordinates& other) const
+{
+  return y != other.y ? y < other.y : x < other.x;
+}
+
+bool wars::Game::Coordinates::operator==(const wars::Game::Coordinates& other) const
+{
+  return x == other.x && y == other.y;
 }

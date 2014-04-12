@@ -108,6 +108,12 @@ namespace wars
     void handleInput();
     void handleClick();
     void handleKey(int key);
+    void initializeActionMenu();
+    void updateStatusText();
+    void setStatusText(std::string const& str);
+
+    Input::Path convertPath(Game::Path const& path) const;
+
     glhckObject* createUnitObject(Game::Unit const& unit);
     glhckObject* createTileHex(Game::Tile const& tile);
     glhckObject* createTileProp(Game::Tile const& tile);
@@ -129,9 +135,12 @@ namespace wars
     bool _shouldQuit;
     InputState _inputState;
 
-    enum class Phase { SELECT, MOVE, ACTION, ATTACK, UNLOAD_UNIT, UNLOAD_TILE, BUILD };
+    enum class Phase { WAIT, SELECT, MOVE, ACTION, ATTACK, UNLOAD_UNIT, UNLOAD_TILE, BUILD };
     Phase _phase = Phase::SELECT;
+    enum Action : int { CANCEL = 0, WAIT, ATTACK, CAPTURE, DEPLOY, UNDEPLOY };
     TextMenu _menu;
+    glhckText* _statusText;
+    unsigned int _statusFont;
   };
 }
 #endif // WARS_GLHCKVIEW_H

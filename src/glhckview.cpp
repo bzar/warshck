@@ -48,7 +48,8 @@ void wars::GlhckView::term()
 }
 
 wars::GlhckView::GlhckView(Input* input) :
-  _input(input), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu()
+  _input(input), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu(),
+  _statusText(nullptr), _statusFont(0)
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
@@ -264,6 +265,13 @@ bool wars::GlhckView::handle()
   glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT | GLHCK_COLOR_BUFFER_BIT);
   glhckRender();
   _menu.render();
+
+  updateStatusText();
+  if(_statusText != nullptr)
+  {
+    glhckTextRender(_statusText);
+  }
+
   glfwSwapBuffers(_window);
 
   return !_shouldQuit;
@@ -550,10 +558,12 @@ void wars::GlhckView::handleClick()
               if(unit.deployed /* TODO: or cannot move */)
               {
                 _phase = Phase::ACTION;
+                initializeActionMenu();
+
               }
               else
               {
-                _phase = Phase::ATTACK;
+                _phase = Phase::MOVE;
               }
             }
           }
@@ -570,6 +580,9 @@ void wars::GlhckView::handleClick()
 
     case Phase::MOVE:
     {
+      _inputState.selected.tileId = _game->getTileAt(_inputState.hexCursor.x, _inputState.hexCursor.y)->id;
+      _phase = Phase::ACTION;
+      initializeActionMenu();
       break;
     }
     case Phase::ATTACK:
@@ -611,6 +624,77 @@ void wars::GlhckView::handleKey(int key)
 
     case Phase::ACTION:
     {
+      int result;
+      if(_menu.input(key, &result))
+      {
+        switch(result) {
+          case Action::CANCEL:
+          {
+            _phase = Phase::SELECT;
+            break;
+          }
+          case Action::WAIT:
+          {
+            Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+            Game::Path path = _game->findUnitPath(_inputState.selected.unitId, {tile.x, tile.y});
+            if(path.empty())
+            {
+              // Cannot move to location
+              _phase = Phase::SELECT;
+            }
+            else
+            {
+              _phase = Phase::WAIT;
+              _input->moveWait(_game->getGameId(), _inputState.selected.unitId, {tile.x, tile.y}, convertPath(path)).then<void>([this](bool success) {
+                std::cout << "moveWait " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+                _phase = Phase::SELECT;
+              });
+            }
+
+            break;
+          }
+          case Action::ATTACK:
+          {
+
+            break;
+          }
+          case Action::CAPTURE:
+          {
+            Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+            Game::Path path = _game->findUnitPath(_inputState.selected.unitId, {tile.x, tile.y});
+            if(path.empty())
+            {
+              // Cannot move to location
+              _phase = Phase::SELECT;
+            }
+            else
+            {
+              _phase = Phase::WAIT;
+              _input->moveCapture(_game->getGameId(), _inputState.selected.unitId, {tile.x, tile.y}, convertPath(path)).then<void>([this](bool success) {
+                std::cout << "moveCapture " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+                _phase = Phase::SELECT;
+              });
+            }
+
+
+            break;
+          }
+          case Action::DEPLOY:
+          {
+
+            break;
+          }
+          case Action::UNDEPLOY:
+          {
+
+            break;
+          }
+          default:
+            break;
+        }
+      }
+      _menu.clear();
+      _menu.update();
       break;
     }
 
@@ -637,10 +721,11 @@ void wars::GlhckView::handleKey(int key)
       {
         std::cout << "Build unit id " << result << std::endl;
         Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
-        _input->build(_game->getGameId(), tile.x, tile.y, result).then<void>([](bool const& success) {
+        _input->build(_game->getGameId(), {tile.x, tile.y}, result).then<void>([this](bool const& success) {
+          _phase = Phase::SELECT;
           std::cout << "Build " << (success ? "SUCCESS" : "FAILURE") << std::endl;
         });
-        _phase = Phase::SELECT;
+        _phase = Phase::WAIT;
         _menu.clear();
         _menu.update();
       }
@@ -651,6 +736,59 @@ void wars::GlhckView::handleKey(int key)
     default:
       break;
   }
+}
+
+void wars::GlhckView::initializeActionMenu()
+{
+  _menu.clear();
+  _menu.addOption(Action::CANCEL, "Cancel");
+  _menu.addOption(Action::WAIT, "Wait");
+  _menu.addOption(Action::ATTACK, "Attack");
+  _menu.addOption(Action::CAPTURE, "Capture");
+  _menu.addOption(Action::DEPLOY, "Deploy");
+  _menu.addOption(Action::UNDEPLOY, "Undeploy");
+  _menu.update();
+}
+
+void wars::GlhckView::updateStatusText()
+{
+  static std::map<Phase, std::string> const PHASE_NAMES = {
+    {Phase::WAIT, "WAIT"},
+    {Phase::SELECT, "SELECT"},
+    {Phase::MOVE, "MOVE"},
+    {Phase::ACTION, "ACTION"},
+    {Phase::ATTACK, "ATTACK"},
+    {Phase::UNLOAD_UNIT, "UNLOAD_UNIT"},
+    {Phase::UNLOAD_TILE, "UNLOAD_TILE"},
+    {Phase::BUILD, "BUILD"}
+  };
+  setStatusText(PHASE_NAMES.at(_phase));
+}
+
+void wars::GlhckView::setStatusText(const std::string& str)
+{
+  if(_statusText == nullptr)
+  {
+    _statusText = glhckTextNew(512, 512);
+    int nativeSize;
+    _statusFont = glhckTextFontNewKakwafont(_statusText, &nativeSize);
+  }
+  int w, h;
+  glfwGetWindowSize(_window, &w, &h);
+
+  glhckTextClear(_statusText);
+  glhckTextStash(_statusText, _statusFont, 24, 4, h, str.data(), nullptr);
+}
+
+wars::Input::Path wars::GlhckView::convertPath(const wars::Game::Path& path) const
+{
+  Input::Path result;
+  for(Game::Coordinates const& c : path)
+  {
+    Input::Position p = {c.x, c.y};
+    result.push_back(p);
+  }
+  return result;
 }
 
 glhckObject* wars::GlhckView::createUnitObject(const wars::Game::Unit& unit)
