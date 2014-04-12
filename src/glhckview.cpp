@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
+#include <sstream>
 
 namespace
 {
@@ -49,7 +50,7 @@ void wars::GlhckView::term()
 
 wars::GlhckView::GlhckView(Input* input) :
   _input(input), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu(),
-  _statusText(nullptr), _statusFont(0)
+  _funds(0), _statusText(nullptr), _statusFont(0)
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
@@ -101,6 +102,7 @@ void wars::GlhckView::setGame(Game* game)
       case wars::Game::EventType::GAMEDATA:
       {
         initializeFromGame();
+        updateFunds();
         break;
       }
       case wars::Game::EventType::MOVE:
@@ -193,6 +195,7 @@ void wars::GlhckView::setGame(Game* game)
       }
       case wars::Game::EventType::BUILD:
       {
+        updateFunds();
         wars::Game::Unit const& unit = _game->getUnit(*e.build.unitId);
         wars::Game::Tile const& tile = _game->getTile(*e.build.tileId);
         glhckObject* unitObject = createUnitObject(unit);
@@ -212,6 +215,7 @@ void wars::GlhckView::setGame(Game* game)
       }
       case wars::Game::EventType::BEGIN_TURN:
       {
+        updateFunds();
         break;
       }
       case wars::Game::EventType::END_TURN:
@@ -854,7 +858,10 @@ void wars::GlhckView::updateStatusText()
     {Phase::UNLOAD_TILE, "UNLOAD_TILE"},
     {Phase::BUILD, "BUILD"}
   };
-  setStatusText(PHASE_NAMES.at(_phase));
+
+  std::ostringstream oss;
+  oss << PHASE_NAMES.at(_phase) << " | " << _funds << " credits";
+  setStatusText(oss.str());
 }
 
 void wars::GlhckView::setStatusText(const std::string& str)
@@ -870,6 +877,13 @@ void wars::GlhckView::setStatusText(const std::string& str)
 
   glhckTextClear(_statusText);
   glhckTextStash(_statusText, _statusFont, 24, 4, h, str.data(), nullptr);
+}
+
+void wars::GlhckView::updateFunds()
+{
+  _input->funds(_game->getGameId()).then<void>([this](int const& value) {
+    _funds = value;
+  });
 }
 
 wars::Input::Path wars::GlhckView::convertPath(const wars::Game::Path& path) const

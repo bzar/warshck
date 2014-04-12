@@ -112,6 +112,7 @@ namespace wars
     void initializeActionMenu();
     void updateStatusText();
     void setStatusText(std::string const& str);
+    void updateFunds();
 
     Input::Path convertPath(Game::Path const& path) const;
 
@@ -140,6 +141,8 @@ namespace wars
     Phase _phase = Phase::SELECT;
     enum Action : int { CANCEL = 0, WAIT, ATTACK, CAPTURE, DEPLOY, UNDEPLOY, LOAD, UNLOAD };
     TextMenu _menu;
+
+    int _funds;
     glhckText* _statusText;
     unsigned int _statusFont;
   };

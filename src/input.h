@@ -86,6 +86,12 @@ namespace wars
       Promise<bool> result;
     };
 
+    struct Funds
+    {
+      std::string gameId;
+      Promise<int> result;
+    };
+
     struct
     {
       Stream<Build> build;
@@ -98,6 +104,7 @@ namespace wars
       Stream<Undeploy> undeploy;
       Stream<EndTurn> endTurn;
       Stream<Surrender> surrender;
+      Stream<Funds> funds;
     } events;
 
     Promise<bool> build(std::string const& gameId, Position position, int type)
@@ -160,6 +167,13 @@ namespace wars
       events.surrender.push({gameId, promise});
       return promise;
     }
+    Promise<int> funds(std::string const& gameId)
+    {
+      Promise<int> promise;
+      events.funds.push({gameId, promise});
+      return promise;
+    }
+
   };
 }
 #endif // INPUT_H
