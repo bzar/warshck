@@ -155,6 +155,8 @@ namespace wars
     int _funds;
     glhckText* _statusText;
     unsigned int _statusFont;
+
+    glhckObject* _sky;
   };
 }
 #endif // WARS_GLHCKVIEW_H

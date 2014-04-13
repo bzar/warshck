@@ -50,7 +50,7 @@ void wars::GlhckView::term()
 
 wars::GlhckView::GlhckView(Input* input) :
   _input(input), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu(),
-  _funds(0), _statusText(nullptr), _statusFont(0)
+  _funds(0), _statusText(nullptr), _statusFont(0), _sky(nullptr)
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
@@ -250,6 +250,9 @@ bool wars::GlhckView::handle()
 
   glhckCameraUpdate(_camera);
 
+  if(_sky != nullptr)
+    glhckObjectDraw(_sky);
+
   bool tilesHighlighted = false;
   for(auto& item : _tiles)
   {
@@ -370,6 +373,9 @@ void wars::GlhckView::clear()
       glhckObjectFree(item.second.prop);
   }
   _tiles.clear();
+
+  if(_sky != nullptr)
+    glhckObjectFree(_sky);
 }
 
 void wars::GlhckView::initializeFromGame()
@@ -380,14 +386,34 @@ void wars::GlhckView::initializeFromGame()
   std::unordered_map<std::string, Game::Unit> const& units = _game->getUnits();
   Rules const& rules = _game->getRules();
 
+  bool first = true;
+  kmVec3 minCoords = {0, 0, 0};
+  kmVec3 maxCoords = {0, 0, 0};
   for(auto item : tiles)
   {
+    minCoords.x = std::min(minCoords.x, static_cast<float>(item.second.x));
+    minCoords.y = std::min(minCoords.y, static_cast<float>(item.second.y));
+    maxCoords.x = std::max(maxCoords.x, static_cast<float>(item.second.x));
+    maxCoords.y = std::max(maxCoords.y, static_cast<float>(item.second.y));
+
     _tiles[item.first] = {
       item.first,
       createTileHex(item.second),
       createTileProp(item.second)
     };
+    first = false;
   }
+
+  kmVec3 minWorldCoords = hexToRect(minCoords);
+  kmVec3 maxWorldCoords = hexToRect(maxCoords);
+
+  float skySphereSize = std::max(maxWorldCoords.x - minCoords.x, maxWorldCoords.y - minWorldCoords.y);
+  kmVec3 skySpherePosition;
+  kmVec3Add(&skySpherePosition, &minWorldCoords, &maxWorldCoords);
+  kmVec3Scale(&skySpherePosition, &skySpherePosition, 0.5);
+
+  _sky = glhckModelNew("models/sky.glhckm", skySphereSize, glhckImportDefaultModelParameters());
+  glhckObjectPosition(_sky, &skySpherePosition);
 
   for(auto item : units)
   {
