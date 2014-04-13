@@ -33,6 +33,10 @@ namespace wars
     {
       std::string id;
       glhckObject* obj;
+      struct
+      {
+        bool highlight = false;
+      } effects;
     };
     struct Tile
     {
@@ -77,6 +81,7 @@ namespace wars
 
       bool acceptInput = false;
       std::vector<Game::Coordinates> hexOptions;
+      std::unordered_map<std::string, int> attackOptions;
     };
 
     struct Theme

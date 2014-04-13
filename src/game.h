@@ -240,12 +240,16 @@ namespace wars
 
     std::string const& getGameId() const;
 
-    int distance(Coordinates const& a, Coordinates const& b) const;
+    int calculateDistance(Coordinates const& a, Coordinates const& b) const;
     bool areAllies(int playerNumber1, int playerNumber2) const;
     Path findShortestPath(Coordinates const& a, Coordinates const& b) const;
     Path findUnitPath(std::string const& unitId, Coordinates const& destination) const;
     std::vector<Coordinates> neighborCoordinates(Coordinates const& pos) const;
     std::vector<Coordinates> findMovementOptions(std::string const& unitId) const;
+    int calculateWeaponPower(Weapon const& weapon, int armorId, int distance) const;
+    int calculateAttackDamage(UnitType const& attackerType, int attackerHealth, bool attackerDeployed, UnitType const& targetType, int targetHealth, int distance, int targetTerrainId) const;
+    std::unordered_map<std::string, int> findAttackOptions(std::string const& unitId, Coordinates const& position) const;
+
   private:
     static std::unordered_map<std::string, State> const STATE_NAMES;
 

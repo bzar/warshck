@@ -586,7 +586,7 @@ const std::string& wars::Game::getGameId() const
   return gameId;
 }
 
-int wars::Game::distance(const wars::Game::Coordinates& a, const wars::Game::Coordinates& b) const
+int wars::Game::calculateDistance(const wars::Game::Coordinates& a, const wars::Game::Coordinates& b) const
 {
   int distance = 0;
   Coordinates aa = a;
@@ -643,7 +643,7 @@ wars::Game::Path wars::Game::findShortestPath(const wars::Game::Coordinates& a, 
     return {};
   }
   typedef std::tuple<int, Coordinates, Coordinates, int> Node; // distance, tile, from, cost
-  std::vector<Node> nodes = {std::make_tuple(distance(a, b), a, a, 0)};
+  std::vector<Node> nodes = {std::make_tuple(calculateDistance(a, b), a, a, 0)};
 
   std::map<Coordinates, Node> visited;
   Path path;
@@ -695,13 +695,13 @@ wars::Game::Path wars::Game::findShortestPath(const wars::Game::Coordinates& a, 
       if(existingIter == nodes.end())
       {
         // Add node to queue if new position
-        nodes.push_back(std::make_tuple(distance(neighborPos, b), neighborPos, pos, cost));
+        nodes.push_back(std::make_tuple(calculateDistance(neighborPos, b), neighborPos, pos, cost));
         newNodes = true;
       }
       else if(cost < std::get<3>(*existingIter))
       {
         // Update existing if shorter route
-        *existingIter = std::make_tuple(distance(neighborPos, b), neighborPos, pos, cost);
+        *existingIter = std::make_tuple(calculateDistance(neighborPos, b), neighborPos, pos, cost);
         newNodes = true;
       }
     }
@@ -735,7 +735,7 @@ wars::Game::Path wars::Game::findUnitPath(const std::string& unitId, const wars:
     return {};
   }
   typedef std::tuple<int, Coordinates, Coordinates, int> Node; // distance, tile, from, cost
-  std::vector<Node> nodes = {std::make_tuple(distance(start, destination), start, start, 0)};
+  std::vector<Node> nodes = {std::make_tuple(calculateDistance(start, destination), start, start, 0)};
 
   std::map<Coordinates, Node> visited;
   Path path;
@@ -807,13 +807,13 @@ wars::Game::Path wars::Game::findUnitPath(const std::string& unitId, const wars:
       if(existingIter == nodes.end())
       {
         // Add node to queue if new position
-        nodes.push_back(std::make_tuple(distance(neighborPos, destination), neighborPos, pos, cost));
+        nodes.push_back(std::make_tuple(calculateDistance(neighborPos, destination), neighborPos, pos, cost));
         newNodes = true;
       }
       else if(cost < std::get<3>(*existingIter))
       {
         // Update existing if shorter route
-        *existingIter = std::make_tuple(distance(neighborPos, destination), neighborPos, pos, cost);
+        *existingIter = std::make_tuple(calculateDistance(neighborPos, destination), neighborPos, pos, cost);
         newNodes = true;
       }
     }
@@ -903,7 +903,7 @@ std::vector<wars::Game::Coordinates> wars::Game::findMovementOptions(const std::
         continue;
 
       // Reject if contains enemy unit
-      if(!tile->unitId.empty() && areAllies(unit.owner, getUnit(tile->unitId).owner))
+      if(!tile->unitId.empty() && !areAllies(unit.owner, getUnit(tile->unitId).owner))
         continue;
 
       // Check if already in queue
@@ -936,9 +936,9 @@ std::vector<wars::Game::Coordinates> wars::Game::findMovementOptions(const std::
   {
     Coordinates const& pos = item.first;
 
-    // Skip if tile has a unit that cannot carry this one
+    // Skip if tile has a unit that cannot carry this one and isn't self
     Tile const* tile = grid.at(pos);
-    if(!tile->unitId.empty())
+    if(!tile->unitId.empty() && tile->unitId != unitId)
     {
       Unit const& tileUnit = getUnit(tile->unitId);
       UnitType const& tileUnitType = rules.unitTypes.at(tileUnit.type);
@@ -951,6 +951,120 @@ std::vector<wars::Game::Coordinates> wars::Game::findMovementOptions(const std::
     }
 
     result.push_back(pos);
+  }
+
+  return result;
+}
+
+int wars::Game::calculateWeaponPower(Weapon const& weapon, int armorId, int distance) const
+{
+  auto efficiencyIter = weapon.rangeMap.find(distance);
+  if(efficiencyIter == weapon.rangeMap.end())
+    return -1;
+
+  auto powerIter = weapon.powerMap.find(armorId);
+  if(powerIter == weapon.powerMap.end())
+    return -1;
+
+  return powerIter->second * efficiencyIter->second / 100;
+}
+
+int wars::Game::calculateAttackDamage(UnitType const& attackerType, int attackerHealth, bool attackerDeployed,
+                                      UnitType const& targetType, int targetHealth, int distance, int targetTerrainId) const
+{
+
+  // Calculate best attack power
+  int power = -1;
+  int weaponIds[] = {attackerType.primaryWeapon, attackerType.secondaryWeapon};
+  for(int weaponId : weaponIds)
+  {
+    if(weaponId < 0)
+      continue;
+
+    Weapon const& weapon = rules.weapons.at(weaponId);
+
+    if(weapon.requireDeployed && !attackerDeployed)
+      continue;
+
+    int weaponPower = calculateWeaponPower(weapon, targetType.armor, distance);
+    power = std::max(power, weaponPower);
+  }
+
+  // Reject if cannot attack
+  if(power < 0)
+    return -1;
+
+  // Determine enemy defense
+  TerrainType const& targetTerrain = rules.terrainTypes.at(targetTerrainId);
+  auto defenseIter = targetType.defenseMap.find(targetTerrainId);
+  int defense = defenseIter != targetType.defenseMap.end() ? defenseIter->second : targetTerrain.defense;
+
+  // Calculate damage
+  int damage = attackerHealth * power * (100 - (defense * targetHealth / 100)) / 100 / 100;
+
+  // Minimum damage is 1
+  return std::max(damage, 1);
+}
+
+std::unordered_map<std::string, int> wars::Game::findAttackOptions(const std::string& unitId, const wars::Game::Coordinates& position) const
+{
+  int minRange = -1;
+  int maxRange = -1;
+
+  Unit const& unit = getUnit(unitId);
+
+  UnitType const& unitType = rules.unitTypes.at(unit.type);
+  int weaponIds[] = {unitType.primaryWeapon, unitType.secondaryWeapon};
+
+  // Determine range limits for usable weapons
+  for(int weaponId : weaponIds)
+  {
+    if(weaponId < 0)
+      continue;
+
+    Weapon const* weapon = &rules.weapons.at(weaponId);
+
+    if(weapon->requireDeployed && !unit.deployed)
+      continue;
+
+    for(auto const& item : weapon->rangeMap)
+    {
+      minRange = minRange >= 0 ? std::min(minRange, item.first) : item.first;
+      maxRange = maxRange >= 0 ? std::max(maxRange, item.first) : item.first;
+    }
+  }
+
+  // Return empty set if no usable weapons
+  if(minRange < 0 || maxRange < 0)
+    return {};
+
+  // Find attackable units and damages
+  std::unordered_map<std::string, int> result;
+  for(auto const& item : tiles)
+  {
+    // Reject if no unit
+    Tile const& enemyTile = item.second;
+    if(enemyTile.unitId.empty())
+      continue;
+
+    // Reject if out of range
+    int distance = calculateDistance(position, {enemyTile.x, enemyTile.y});
+    if(distance < minRange && distance > maxRange)
+      continue;
+
+    // Reject if unit is ally
+    Unit const& enemy = getUnit(enemyTile.unitId);
+    if(areAllies(unit.owner, enemy.owner))
+      continue;
+
+    UnitType enemyType = rules.unitTypes.at(enemy.type);
+
+    // Calculate damage
+    int damage = calculateAttackDamage(unitType, unit.health, unit.deployed, enemyType, enemy.health, distance, enemyTile.type);
+
+    // Add result if attack is possible
+    if(damage >= 0)
+      result[enemy.id] = damage;
   }
 
   return result;

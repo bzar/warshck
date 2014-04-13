@@ -250,11 +250,6 @@ bool wars::GlhckView::handle()
 
   glhckCameraUpdate(_camera);
 
-  for(auto& item : _units)
-  {
-    glhckObjectDraw(item.second.obj);
-  }
-
   bool tilesHighlighted = false;
   for(auto& item : _tiles)
   {
@@ -272,6 +267,13 @@ bool wars::GlhckView::handle()
 
   }
 
+  bool unitsHighlighted = false;
+  for(auto& item : _units)
+  {
+    unitsHighlighted |= item.second.effects.highlight;
+    glhckObjectDraw(item.second.obj);
+  }
+
   glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT | GLHCK_COLOR_BUFFER_BIT);
   glhckRender();
 
@@ -287,6 +289,22 @@ bool wars::GlhckView::handle()
           glhckObjectDraw(item.second.prop);
       }
     }
+
+    glhckRender();
+    glhckRenderBlendFunc(GLHCK_ZERO, GLHCK_ZERO);
+  }
+
+  if(unitsHighlighted)
+  {
+    glhckRenderBlendFunc(GLHCK_ONE, GLHCK_ONE);
+    for(auto& item : _units)
+    {
+      if(item.second.effects.highlight)
+      {
+        glhckObjectDraw(item.second.obj);
+      }
+    }
+
     glhckRender();
     glhckRenderBlendFunc(GLHCK_ZERO, GLHCK_ZERO);
   }
@@ -636,9 +654,8 @@ void wars::GlhckView::handleClick()
 
     case Phase::ATTACK:
     {
-      Game::Tile const* enemyTile = _game->getTileAt(_inputState.hexCursor.x,
-                                                _inputState.hexCursor.y);
-      if(enemyTile->unitId.empty())
+      Game::Tile const* enemyTile = _game->getTileAt(_inputState.hexCursor.x, _inputState.hexCursor.y);
+      if(enemyTile->unitId.empty() || _inputState.attackOptions.find(enemyTile->unitId) == _inputState.attackOptions.end())
       {
         _phase = Phase::SELECT;
       }
@@ -661,6 +678,12 @@ void wars::GlhckView::handleClick()
           });
         }
       }
+
+      for(auto& item : _units)
+      {
+        item.second.effects.highlight = false;
+      }
+
       break;
     }
 
@@ -732,6 +755,17 @@ void wars::GlhckView::handleKey(int key)
           case Action::ATTACK:
           {
             _phase = Phase::ATTACK;
+            Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+            _inputState.attackOptions = _game->findAttackOptions(_inputState.selected.unitId, {tile.x, tile.y});
+            std::cout << "Attack options:" << std::endl;
+            for(auto const& o : _inputState.attackOptions)
+              std::cout << o.first << ": " << o.second << std::endl;
+
+            for(auto& item : _units)
+            {
+              item.second.effects.highlight = _inputState.attackOptions.find(item.first) != _inputState.attackOptions.end();
+            }
+
             break;
           }
           case Action::CAPTURE:
