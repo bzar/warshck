@@ -658,7 +658,8 @@ void wars::GlhckView::handleKey(int key)
       int result;
       if(_menu.input(key, &result))
       {
-        switch(result) {
+        Action action = static_cast<Action>(result);
+        switch(action) {
           case Action::CANCEL:
           {
             _phase = Phase::SELECT;
@@ -848,19 +849,19 @@ void wars::GlhckView::initializeActionMenu()
 
 void wars::GlhckView::updateStatusText()
 {
-  static std::map<Phase, std::string> const PHASE_NAMES = {
-    {Phase::WAIT, "WAIT"},
-    {Phase::SELECT, "SELECT"},
-    {Phase::MOVE, "MOVE"},
-    {Phase::ACTION, "ACTION"},
-    {Phase::ATTACK, "ATTACK"},
-    {Phase::UNLOAD_UNIT, "UNLOAD_UNIT"},
-    {Phase::UNLOAD_TILE, "UNLOAD_TILE"},
-    {Phase::BUILD, "BUILD"}
+  static std::string const PHASE_NAMES[] = {
+    "WAIT",
+    "SELECT",
+    "MOVE",
+    "ACTION",
+    "ATTACK",
+    "UNLOAD_UNIT",
+    "UNLOAD_TILE",
+    "BUILD"
   };
 
   std::ostringstream oss;
-  oss << PHASE_NAMES.at(_phase) << " | " << _funds << " credits";
+  oss << PHASE_NAMES[static_cast<int>(_phase)] << " | " << _funds << " credits";
   setStatusText(oss.str());
 }
 
