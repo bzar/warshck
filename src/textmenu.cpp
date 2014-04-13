@@ -1,7 +1,7 @@
 #include "textmenu.h"
 #include <sstream>
 
-std::string const TextMenu::KEYS = "1234567890abcdefghijklmnopqrstuvwxyz";
+std::string const TextMenu::KEYS = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 TextMenu::TextMenu() : text(nullptr), font(0), entries()
 {
 }

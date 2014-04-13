@@ -459,36 +459,32 @@ void wars::GlhckView::handleInput()
         switch(e->keyboardKey.key)
         {
           case GLFW_KEY_LEFT:
-          case GLFW_KEY_A:
           {
             _inputState.camera.left = e->keyboardKey.action != GLFW_RELEASE;
             break;
           }
           case GLFW_KEY_RIGHT:
-          case GLFW_KEY_D:
           {
             _inputState.camera.right = e->keyboardKey.action != GLFW_RELEASE;
             break;
           }
           case GLFW_KEY_UP:
-          case GLFW_KEY_W:
           {
             _inputState.camera.forward = e->keyboardKey.action != GLFW_RELEASE;
             break;
           }
           case GLFW_KEY_DOWN:
-          case GLFW_KEY_S:
           {
             _inputState.camera.backward = e->keyboardKey.action != GLFW_RELEASE;
             break;
 
           }
-          case GLFW_KEY_R:
+          case GLFW_KEY_PAGE_UP:
           {
             _inputState.camera.zoomIn = e->keyboardKey.action != GLFW_RELEASE;
             break;
           }
-          case GLFW_KEY_F:
+          case GLFW_KEY_PAGE_DOWN:
           {
             _inputState.camera.zoomOut = e->keyboardKey.action != GLFW_RELEASE;
             break;
@@ -844,19 +840,27 @@ void wars::GlhckView::handleKey(int key)
           case Action::LOAD:
           {
             Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
-            Game::Path path = _game->findUnitPath(_inputState.selected.unitId, {tile.x, tile.y});
-            if(path.empty())
+            if(tile.unitId.empty() || !_game->unitCanLoadInto(_inputState.selected.unitId, tile.unitId))
             {
-              // Cannot move to location
+              // No unit to load into
               _phase = Phase::SELECT;
             }
             else
             {
-              _phase = Phase::WAIT;
-              _input->moveLoad(_game->getGameId(), _inputState.selected.unitId, _inputState.selected.carrierId, convertPath(path)).then<void>([this](bool success) {
-                std::cout << "moveDeploy " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+              Game::Path path = _game->findUnitPath(_inputState.selected.unitId, {tile.x, tile.y});
+              if(path.empty())
+              {
+                // Cannot move to location
                 _phase = Phase::SELECT;
-              });
+              }
+              else
+              {
+                _phase = Phase::WAIT;
+                _input->moveLoad(_game->getGameId(), _inputState.selected.unitId, tile.unitId, convertPath(path)).then<void>([this](bool success) {
+                  std::cout << "moveDeploy " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+                  _phase = Phase::SELECT;
+                });
+              }
             }
 
             break;

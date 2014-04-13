@@ -249,6 +249,7 @@ namespace wars
     int calculateWeaponPower(Weapon const& weapon, int armorId, int distance) const;
     int calculateAttackDamage(UnitType const& attackerType, int attackerHealth, bool attackerDeployed, UnitType const& targetType, int targetHealth, int distance, int targetTerrainId) const;
     std::unordered_map<std::string, int> findAttackOptions(std::string const& unitId, Coordinates const& position) const;
+    bool unitCanLoadInto(std::string const& unitId, std::string const& carrierId) const;
 
   private:
     static std::unordered_map<std::string, State> const STATE_NAMES;

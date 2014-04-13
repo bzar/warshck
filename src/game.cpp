@@ -796,7 +796,7 @@ wars::Game::Path wars::Game::findUnitPath(const std::string& unitId, const wars:
         continue;
 
       // Reject if contains enemy unit
-      if(!tile->unitId.empty() && areAllies(unit.owner, getUnit(tile->unitId).owner))
+      if(!tile->unitId.empty() && !areAllies(unit.owner, getUnit(tile->unitId).owner))
         continue;
 
       // Check if already in queue
@@ -1061,6 +1061,21 @@ std::unordered_map<std::string, int> wars::Game::findAttackOptions(const std::st
   }
 
   return result;
+}
+
+bool wars::Game::unitCanLoadInto(const std::string& unitId, const std::string& carrierId) const
+{
+  if(unitId.empty() || carrierId.empty() || unitId == carrierId)
+    return false;
+
+  Unit const& unit = getUnit(unitId);
+  Unit const& carrier = getUnit(carrierId);
+  UnitType const& unitType = rules.unitTypes.at(unit.type);
+  UnitType const& carrierType = rules.unitTypes.at(carrier.type);
+
+  return carrier.owner == unit.owner
+      && carrier.carriedUnits.size() < carrierType.carryNum
+      && carrierType.carryClasses.find(unitType.unitClass) != carrierType.carryClasses.end();
 }
 
 std::string wars::Game::updateTileFromJSON(const json::Value& value)
