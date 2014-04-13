@@ -943,15 +943,24 @@ void wars::GlhckView::handleKey(int key)
 
 void wars::GlhckView::initializeActionMenu()
 {
+  Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+
   _menu.clear();
   _menu.addOption(Action::CANCEL, "Cancel");
-  _menu.addOption(Action::WAIT, "Wait");
-  _menu.addOption(Action::ATTACK, "Attack");
-  _menu.addOption(Action::CAPTURE, "Capture");
-  _menu.addOption(Action::DEPLOY, "Deploy");
-  _menu.addOption(Action::UNDEPLOY, "Undeploy");
-  _menu.addOption(Action::LOAD, "Load");
-  _menu.addOption(Action::UNLOAD, "Unload");
+  if(!_game->unitCanLoadInto(_inputState.selected.unitId, tile.unitId))
+    _menu.addOption(Action::WAIT, "Wait");
+  if(_game->unitCanAttackFromTile(_inputState.selected.unitId, _inputState.selected.tileId))
+    _menu.addOption(Action::ATTACK, "Attack");
+  if(_game->unitCanCaptureTile(_inputState.selected.unitId, _inputState.selected.tileId))
+    _menu.addOption(Action::CAPTURE, "Capture");
+  if(_game->unitCanDeployAtTile(_inputState.selected.unitId, _inputState.selected.tileId))
+    _menu.addOption(Action::DEPLOY, "Deploy");
+  if(_game->unitCanUndeploy(_inputState.selected.unitId, _inputState.selected.tileId))
+    _menu.addOption(Action::UNDEPLOY, "Undeploy");
+  if(_game->unitCanLoadInto(_inputState.selected.unitId, tile.unitId))
+    _menu.addOption(Action::LOAD, "Load");
+  if(_game->unitCanUnloadAtTile(_inputState.selected.unitId, _inputState.selected.tileId))
+    _menu.addOption(Action::UNLOAD, "Unload");
   _menu.update();
 }
 

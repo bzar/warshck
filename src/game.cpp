@@ -1078,6 +1078,95 @@ bool wars::Game::unitCanLoadInto(const std::string& unitId, const std::string& c
       && carrierType.carryClasses.find(unitType.unitClass) != carrierType.carryClasses.end();
 }
 
+bool wars::Game::unitCanAttackFromTile(const std::string& unitId, const std::string& tileId)
+{
+  Tile const& tile = getTile(tileId);
+
+  if(!tile.unitId.empty() && tile.unitId != unitId)
+    return false;
+
+  return !findAttackOptions(unitId, {tile.x, tile.y}).empty();
+}
+
+bool wars::Game::unitCanCaptureTile(const std::string& unitId, const std::string& tileId)
+{
+  Tile const& tile = getTile(tileId);
+
+  if(!tile.unitId.empty())
+    return false;
+
+  Unit const& unit = getUnit(unitId);
+
+  if(areAllies(unit.owner, tile.owner))
+    return false;
+
+  UnitType const& unitType = rules.unitTypes.at(unit.type);
+
+  bool canCapture = false;
+  for(int unitFlagId : unitType.flags)
+  {
+    UnitFlag const& flag = rules.unitFlags.at(unitFlagId);
+    if(flag.name == "Capture")
+    {
+      canCapture = true;
+      break;
+    }
+  }
+
+  if(!canCapture)
+    return false;
+
+  TerrainType const& tileType = rules.terrainTypes.at(tile.type);
+
+  bool capturable = false;
+  for(int terrainFlagId : tileType.flags)
+  {
+    TerrainFlag const& flag = rules.terrainFlags.at(terrainFlagId);
+    if(flag.name == "Capturable")
+    {
+      capturable = true;
+      break;
+    }
+  }
+
+  if(!capturable)
+    return false;
+
+  return true;
+}
+
+bool wars::Game::unitCanDeployAtTile(const std::string& unitId, const std::string& tileId)
+{
+  Tile const& tile = getTile(tileId);
+
+  if(!tile.unitId.empty())
+    return false;
+
+  Unit const& unit = getUnit(unitId);
+
+  if(unit.deployed)
+    return false;
+
+  UnitType const& unitType = rules.unitTypes.at(unit.type);
+
+  if((unitType.primaryWeapon < 0  || rules.weapons.at(unitType.primaryWeapon).requireDeployed) &&
+     (unitType.secondaryWeapon < 0  || rules.weapons.at(unitType.secondaryWeapon).requireDeployed))
+    return false;
+
+  return true;
+}
+
+bool wars::Game::unitCanUndeploy(const std::string& unitId, const std::string& tileId)
+{
+  Unit const& unit = getUnit(unitId);
+  return unit.deployed;
+}
+
+bool wars::Game::unitCanUnloadAtTile(const std::string& unitId, const std::string& tileId)
+{
+  return false;
+}
+
 std::string wars::Game::updateTileFromJSON(const json::Value& value)
 {
   Tile tile;

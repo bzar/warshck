@@ -250,6 +250,11 @@ namespace wars
     int calculateAttackDamage(UnitType const& attackerType, int attackerHealth, bool attackerDeployed, UnitType const& targetType, int targetHealth, int distance, int targetTerrainId) const;
     std::unordered_map<std::string, int> findAttackOptions(std::string const& unitId, Coordinates const& position) const;
     bool unitCanLoadInto(std::string const& unitId, std::string const& carrierId) const;
+    bool unitCanAttackFromTile(std::string const& unitId, std::string const& tileId);
+    bool unitCanCaptureTile(std::string const& unitId, std::string const& tileId);
+    bool unitCanDeployAtTile(std::string const& unitId, std::string const& tileId);
+    bool unitCanUndeploy(std::string const& unitId, std::string const& tileId);
+    bool unitCanUnloadAtTile(std::string const& unitId, std::string const& tileId);
 
   private:
     static std::unordered_map<std::string, State> const STATE_NAMES;
