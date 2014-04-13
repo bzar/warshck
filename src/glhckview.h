@@ -39,6 +39,10 @@ namespace wars
       std::string id;
       glhckObject* hex;
       glhckObject* prop;
+      struct
+      {
+        bool highlight = false;
+      } effects;
     };
     struct InputState
     {
@@ -72,6 +76,7 @@ namespace wars
       } selected;
 
       bool acceptInput = false;
+      std::vector<Game::Coordinates> hexOptions;
     };
 
     struct Theme

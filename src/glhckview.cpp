@@ -255,19 +255,42 @@ bool wars::GlhckView::handle()
     glhckObjectDraw(item.second.obj);
   }
 
+  bool tilesHighlighted = false;
   for(auto& item : _tiles)
   {
     Game::Tile const& tile = _game->getTile(item.first);
+
     bool selected = tile.x == _inputState.hexCursor.x
         && tile.y == _inputState.hexCursor.y;
     glhckObjectDrawAABB(item.second.hex, selected);
     glhckObjectDraw(item.second.hex);
+
+    tilesHighlighted |= item.second.effects.highlight;
+
     if(item.second.prop != nullptr)
       glhckObjectDraw(item.second.prop);
+
   }
 
   glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT | GLHCK_COLOR_BUFFER_BIT);
   glhckRender();
+
+  if(tilesHighlighted)
+  {
+    glhckRenderBlendFunc(GLHCK_ONE, GLHCK_ONE);
+    for(auto& item : _tiles)
+    {
+      if(item.second.effects.highlight)
+      {
+        glhckObjectDraw(item.second.hex);
+        if(item.second.prop != nullptr)
+          glhckObjectDraw(item.second.prop);
+      }
+    }
+    glhckRender();
+    glhckRenderBlendFunc(GLHCK_ZERO, GLHCK_ZERO);
+  }
+
   _menu.render();
 
   updateStatusText();
@@ -559,7 +582,8 @@ void wars::GlhckView::handleClick()
             if(unit.owner == inTurn.playerNumber && !unit.moved)
             {
               _inputState.selected.unitId = unit.id;
-              if(unit.deployed /* TODO: or cannot move */)
+              _inputState.hexOptions = _game->findMovementOptions(unit.id);
+              if(unit.deployed || _inputState.hexOptions.size() <= 1)
               {
                 _phase = Phase::ACTION;
                 _inputState.selected.tileId = tile->id;
@@ -569,6 +593,13 @@ void wars::GlhckView::handleClick()
               else
               {
                 _phase = Phase::MOVE;
+
+                for(auto& item : _tiles)
+                {
+                  Game::Tile const& t = _game->getTile(item.first);
+                  Game::Coordinates c = {t.x, t.y};
+                  item.second.effects.highlight = std::find(_inputState.hexOptions.begin(), _inputState.hexOptions.end(), c) != _inputState.hexOptions.end();
+                }
               }
             }
           }
@@ -584,9 +615,22 @@ void wars::GlhckView::handleClick()
 
     case Phase::MOVE:
     {
-      _inputState.selected.tileId = _game->getTileAt(_inputState.hexCursor.x, _inputState.hexCursor.y)->id;
-      _phase = Phase::ACTION;
-      initializeActionMenu();
+      for(auto& item : _tiles)
+      {
+        item.second.effects.highlight = false;
+      }
+
+      Game::Coordinates coords = {_inputState.hexCursor.x, _inputState.hexCursor.y};
+      if(std::find(_inputState.hexOptions.begin(), _inputState.hexOptions.end(), coords) != _inputState.hexOptions.end())
+      {
+        _inputState.selected.tileId = _game->getTileAt(_inputState.hexCursor.x, _inputState.hexCursor.y)->id;
+        _phase = Phase::ACTION;
+        initializeActionMenu();
+      }
+      else
+      {
+        _phase = Phase::SELECT;
+      }
       break;
     }
 
@@ -1049,3 +1093,5 @@ void wars::GlhckView::loadTheme(const std::string& themeFile)
     _theme.tiles.push_back(tile);
   }
 }
+
+
