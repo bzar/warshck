@@ -611,6 +611,24 @@ int wars::Game::distance(const wars::Game::Coordinates& a, const wars::Game::Coo
   return distance;
 }
 
+bool wars::Game::areAllies(int playerNumber1, int playerNumber2) const
+{
+  if(playerNumber1 == 0)
+  {
+    return playerNumber2 == 0;
+  }
+  else if(playerNumber2 == 0)
+  {
+    return false;
+  }
+  else
+  {
+    Player const& player1 = players.at(playerNumber1);
+    Player const& player2 = players.at(playerNumber2);
+    return player1.teamNumber == player2.teamNumber;
+  }
+}
+
 wars::Game::Path wars::Game::findShortestPath(const wars::Game::Coordinates& a, const wars::Game::Coordinates& b) const
 {
   std::map<Coordinates, Tile const*> grid;
@@ -778,7 +796,7 @@ wars::Game::Path wars::Game::findUnitPath(const std::string& unitId, const wars:
         continue;
 
       // Reject if contains enemy unit
-      if(!tile->unitId.empty() && unit.owner != getUnit(tile->unitId).owner)
+      if(!tile->unitId.empty() && areAllies(unit.owner, getUnit(tile->unitId).owner))
         continue;
 
       // Check if already in queue
@@ -819,6 +837,123 @@ std::vector<wars::Game::Coordinates> wars::Game::neighborCoordinates(const wars:
     {pos.x + 1, pos.y - 1},
     {pos.x - 1, pos.y + 1},
   };
+}
+
+std::vector<wars::Game::Coordinates> wars::Game::findMovementOptions(const std::string& unitId) const
+{
+  Unit const& unit = getUnit(unitId);
+  Tile const& startTile = getTile(unit.tileId);
+  Coordinates const start = {startTile.x, startTile.y};
+  UnitType const& unitType = rules.unitTypes.at(unit.type);
+  MovementType const& movementType = rules.movementTypes.at(unitType.movementType);
+
+  std::map<Coordinates, Tile const*> grid;
+  for(auto const& item : tiles)
+  {
+    Coordinates pos = {item.second.x, item.second.y};
+    grid[pos] = &item.second;
+  }
+
+  typedef std::tuple<int, Coordinates, Coordinates> Node; // cost, tile, from
+  std::vector<Node> nodes = {std::make_tuple(0, start, start)};
+
+  std::map<Coordinates, Node> visited;
+
+  bool newNodes = false;
+  while(!nodes.empty())
+  {
+    // Get node
+    Node node = nodes.back();
+    nodes.pop_back();
+
+    // Add node to visited
+    Coordinates pos = {std::get<1>(node).x, std::get<1>(node).y};
+    visited[pos] = node;
+
+    // Process neighbors
+    for(Coordinates neighborPos : neighborCoordinates(pos))
+    {
+      auto iter = grid.find(neighborPos);
+
+      // Reject if does not exist
+      if(iter == grid.end())
+        continue;
+
+      // Reject if visited
+      if(visited.find(neighborPos) != visited.end())
+        continue;
+
+      // Determine cost
+      Tile const* tile = iter->second;
+      int tileCost = 1;
+      auto effectIter = movementType.effectMap.find(tile->type);
+      if(effectIter != movementType.effectMap.end())
+      {
+        tileCost = effectIter->second;
+      }
+
+      // Reject if cannot traverse
+      if(tileCost < 0)
+        continue;
+
+      int cost = std::get<0>(node) + tileCost;
+
+      // Reject if not enough movement points
+      if(cost > unitType.movement)
+        continue;
+
+      // Reject if contains enemy unit
+      if(!tile->unitId.empty() && areAllies(unit.owner, getUnit(tile->unitId).owner))
+        continue;
+
+      // Check if already in queue
+      auto existingIter = std::find_if(nodes.begin(), nodes.end(), [&neighborPos](Node const& n) {
+        return std::get<1>(n) == neighborPos;
+      });
+
+      if(existingIter == nodes.end())
+      {
+        // Add node to queue if new position
+        nodes.push_back(std::make_tuple(cost, neighborPos, pos));
+        newNodes = true;
+      }
+      else if(cost < std::get<0>(*existingIter))
+      {
+        // Update existing if shorter route
+        *existingIter = std::make_tuple(cost, neighborPos, pos);
+        newNodes = true;
+      }
+    }
+
+    if(newNodes)
+    {
+      std::stable_sort(nodes.begin(), nodes.end());
+    }
+  }
+
+  std::vector<Coordinates> result;
+  for(auto const& item : visited)
+  {
+    Coordinates const& pos = item.first;
+
+    // Skip if tile has a unit that cannot carry this one
+    Tile const* tile = grid.at(pos);
+    if(!tile->unitId.empty())
+    {
+      Unit const& tileUnit = getUnit(tile->unitId);
+      UnitType const& tileUnitType = rules.unitTypes.at(tileUnit.type);
+      if(tileUnit.owner != unit.owner
+         || tileUnit.carriedUnits.size() >= tileUnitType.carryNum
+         || tileUnitType.carryClasses.find(unitType.unitClass) == tileUnitType.carryClasses.end())
+      {
+        continue;
+      }
+    }
+
+    result.push_back(pos);
+  }
+
+  return result;
 }
 
 std::string wars::Game::updateTileFromJSON(const json::Value& value)

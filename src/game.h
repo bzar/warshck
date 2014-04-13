@@ -241,10 +241,11 @@ namespace wars
     std::string const& getGameId() const;
 
     int distance(Coordinates const& a, Coordinates const& b) const;
+    bool areAllies(int playerNumber1, int playerNumber2) const;
     Path findShortestPath(Coordinates const& a, Coordinates const& b) const;
     Path findUnitPath(std::string const& unitId, Coordinates const& destination) const;
     std::vector<Coordinates> neighborCoordinates(Coordinates const& pos) const;
-
+    std::vector<Coordinates> findMovementOptions(std::string const& unitId) const;
   private:
     static std::unordered_map<std::string, State> const STATE_NAMES;
 
