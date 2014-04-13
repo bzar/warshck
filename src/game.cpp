@@ -859,7 +859,6 @@ std::vector<wars::Game::Coordinates> wars::Game::findMovementOptions(const std::
 
   std::map<Coordinates, Node> visited;
 
-  bool newNodes = false;
   while(!nodes.empty())
   {
     // Get node
@@ -877,10 +876,6 @@ std::vector<wars::Game::Coordinates> wars::Game::findMovementOptions(const std::
 
       // Reject if does not exist
       if(iter == grid.end())
-        continue;
-
-      // Reject if visited
-      if(visited.find(neighborPos) != visited.end())
         continue;
 
       // Determine cost
@@ -906,6 +901,11 @@ std::vector<wars::Game::Coordinates> wars::Game::findMovementOptions(const std::
       if(!tile->unitId.empty() && !areAllies(unit.owner, getUnit(tile->unitId).owner))
         continue;
 
+      // Check if shorter route to already visited
+      auto visitedIter = visited.find(neighborPos);
+      if(visitedIter != visited.end() && std::get<0>(visitedIter->second) < cost)
+        continue;
+
       // Check if already in queue
       auto existingIter = std::find_if(nodes.begin(), nodes.end(), [&neighborPos](Node const& n) {
         return std::get<1>(n) == neighborPos;
@@ -915,19 +915,12 @@ std::vector<wars::Game::Coordinates> wars::Game::findMovementOptions(const std::
       {
         // Add node to queue if new position
         nodes.push_back(std::make_tuple(cost, neighborPos, pos));
-        newNodes = true;
       }
       else if(cost < std::get<0>(*existingIter))
       {
         // Update existing if shorter route
         *existingIter = std::make_tuple(cost, neighborPos, pos);
-        newNodes = true;
       }
-    }
-
-    if(newNodes)
-    {
-      std::stable_sort(nodes.begin(), nodes.end());
     }
   }
 
