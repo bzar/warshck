@@ -253,6 +253,8 @@ bool wars::GlhckView::handle()
   if(_sky != nullptr)
     glhckObjectDraw(_sky);
 
+  glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT | GLHCK_COLOR_BUFFER_BIT);
+
   bool tilesHighlighted = false;
   for(auto& item : _tiles)
   {
@@ -264,20 +266,7 @@ bool wars::GlhckView::handle()
     glhckObjectDraw(item.second.hex);
 
     tilesHighlighted |= item.second.effects.highlight;
-
-    if(item.second.prop != nullptr)
-      glhckObjectDraw(item.second.prop);
-
   }
-
-  bool unitsHighlighted = false;
-  for(auto& item : _units)
-  {
-    unitsHighlighted |= item.second.effects.highlight;
-    glhckObjectDraw(item.second.obj);
-  }
-
-  glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT | GLHCK_COLOR_BUFFER_BIT);
   glhckRender();
 
   if(tilesHighlighted)
@@ -288,6 +277,27 @@ bool wars::GlhckView::handle()
       if(item.second.effects.highlight)
       {
         glhckObjectDraw(item.second.hex);
+      }
+    }
+
+    glhckRender();
+    glhckRenderBlendFunc(GLHCK_ZERO, GLHCK_ZERO);
+  }
+
+  for(auto& item : _tiles)
+  {
+    if(item.second.prop != nullptr)
+      glhckObjectDraw(item.second.prop);
+  }
+  glhckRender();
+
+  if(tilesHighlighted)
+  {
+    glhckRenderBlendFunc(GLHCK_ONE, GLHCK_ONE);
+    for(auto& item : _tiles)
+    {
+      if(item.second.effects.highlight)
+      {
         if(item.second.prop != nullptr)
           glhckObjectDraw(item.second.prop);
       }
@@ -296,6 +306,15 @@ bool wars::GlhckView::handle()
     glhckRender();
     glhckRenderBlendFunc(GLHCK_ZERO, GLHCK_ZERO);
   }
+
+  bool unitsHighlighted = false;
+  for(auto& item : _units)
+  {
+    unitsHighlighted |= item.second.effects.highlight;
+    glhckObjectDraw(item.second.obj);
+  }
+
+  glhckRender();
 
   if(unitsHighlighted)
   {
