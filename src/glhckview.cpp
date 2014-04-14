@@ -489,6 +489,23 @@ void wars::GlhckView::handleInput()
             _inputState.camera.zoomOut = e->keyboardKey.action != GLFW_RELEASE;
             break;
           }
+          case GLFW_KEY_SPACE:
+          {
+            if(_phase == Phase::SELECT)
+            {
+              _phase = Phase::GAME_MENU;
+              _menu.clear();
+              _menu.addOption(GameMenuAction::CANCEL, "Cancel");
+              if(_game->getInTurn().isMe)
+              {
+                _menu.addOption(GameMenuAction::END_TURN, "End turn");
+                _menu.addOption(GameMenuAction::SURRENDER, "Surrender");
+              }
+              _menu.addOption(GameMenuAction::QUIT, "Quit");
+              _menu.update();
+            }
+            break;
+          }
           case GLFW_KEY_ESCAPE:
           {
             quit();
@@ -760,6 +777,12 @@ void wars::GlhckView::handleClick()
       break;
     }
 
+    case Phase::GAME_MENU:
+    {
+      _phase = Phase::SELECT;
+      _menu.clear();
+      _menu.update();
+    }
 
     default:
       break;
@@ -982,6 +1005,48 @@ void wars::GlhckView::handleKey(int key)
       break;
     }
 
+    case Phase::GAME_MENU:
+    {
+      int result;
+      if(_menu.input(key, &result))
+      {
+        _menu.clear();
+        GameMenuAction action = static_cast<GameMenuAction>(result);
+        switch(action)
+        {
+          case GameMenuAction::CANCEL:
+          {
+            _phase = Phase::SELECT;
+            break;
+          }
+          case GameMenuAction::END_TURN:
+          {
+            _phase = Phase::WAIT;
+            _input->endTurn(_game->getGameId()).then<void>([this](bool const& success) {
+              _phase = Phase::SELECT;
+              std::cout << "End turn " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+            });
+            break;
+          }
+          case GameMenuAction::SURRENDER:
+          {
+            _phase = Phase::WAIT;
+            _input->surrender(_game->getGameId()).then<void>([this](bool const& success) {
+              _phase = Phase::SELECT;
+              std::cout << "Surrender " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+            });
+            break;
+          }
+          case GameMenuAction::QUIT:
+          {
+            quit();
+            break;
+          }
+        }
+        _menu.update();
+      }
+      break;
+    }
 
     default:
       break;
@@ -1021,7 +1086,8 @@ void wars::GlhckView::updateStatusText()
     "ATTACK",
     "UNLOAD_UNIT",
     "UNLOAD_TILE",
-    "BUILD"
+    "BUILD",
+    "GAME_MENU"
   };
 
   std::ostringstream oss;

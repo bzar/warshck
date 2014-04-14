@@ -147,9 +147,11 @@ namespace wars
     bool _shouldQuit;
     InputState _inputState;
 
-    enum class Phase : int { WAIT = 0, SELECT, MOVE, ACTION, ATTACK, UNLOAD_UNIT, UNLOAD_TILE, BUILD };
+    enum class Phase : int { WAIT = 0, SELECT, MOVE, ACTION, ATTACK, UNLOAD_UNIT, UNLOAD_TILE, BUILD, GAME_MENU };
     Phase _phase = Phase::SELECT;
     enum class Action : int { CANCEL = 0, WAIT, ATTACK, CAPTURE, DEPLOY, UNDEPLOY, LOAD, UNLOAD };
+    enum class GameMenuAction : int { CANCEL = 0, END_TURN, SURRENDER, QUIT };
+
     TextMenu _menu;
 
     int _funds;
