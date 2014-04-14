@@ -1078,7 +1078,7 @@ bool wars::Game::unitCanLoadInto(const std::string& unitId, const std::string& c
       && carrierType.carryClasses.find(unitType.unitClass) != carrierType.carryClasses.end();
 }
 
-bool wars::Game::unitCanAttackFromTile(const std::string& unitId, const std::string& tileId)
+bool wars::Game::unitCanAttackFromTile(const std::string& unitId, const std::string& tileId) const
 {
   Tile const& tile = getTile(tileId);
 
@@ -1088,11 +1088,11 @@ bool wars::Game::unitCanAttackFromTile(const std::string& unitId, const std::str
   return !findAttackOptions(unitId, {tile.x, tile.y}).empty();
 }
 
-bool wars::Game::unitCanCaptureTile(const std::string& unitId, const std::string& tileId)
+bool wars::Game::unitCanCaptureTile(const std::string& unitId, const std::string& tileId) const
 {
   Tile const& tile = getTile(tileId);
 
-  if(!tile.unitId.empty())
+  if(!tile.unitId.empty() && tile.unitId != unitId)
     return false;
 
   Unit const& unit = getUnit(unitId);
@@ -1135,7 +1135,7 @@ bool wars::Game::unitCanCaptureTile(const std::string& unitId, const std::string
   return true;
 }
 
-bool wars::Game::unitCanDeployAtTile(const std::string& unitId, const std::string& tileId)
+bool wars::Game::unitCanDeployAtTile(const std::string& unitId, const std::string& tileId) const
 {
   Tile const& tile = getTile(tileId);
 
@@ -1149,22 +1149,129 @@ bool wars::Game::unitCanDeployAtTile(const std::string& unitId, const std::strin
 
   UnitType const& unitType = rules.unitTypes.at(unit.type);
 
-  if((unitType.primaryWeapon < 0  || rules.weapons.at(unitType.primaryWeapon).requireDeployed) &&
-     (unitType.secondaryWeapon < 0  || rules.weapons.at(unitType.secondaryWeapon).requireDeployed))
+  if((unitType.primaryWeapon < 0  || !rules.weapons.at(unitType.primaryWeapon).requireDeployed) &&
+     (unitType.secondaryWeapon < 0  || !rules.weapons.at(unitType.secondaryWeapon).requireDeployed))
     return false;
 
   return true;
 }
 
-bool wars::Game::unitCanUndeploy(const std::string& unitId, const std::string& tileId)
+bool wars::Game::unitCanUndeploy(const std::string& unitId, const std::string& tileId) const
 {
   Unit const& unit = getUnit(unitId);
   return unit.deployed;
 }
 
-bool wars::Game::unitCanUnloadAtTile(const std::string& unitId, const std::string& tileId)
+bool wars::Game::unitCanUnloadAtTile(const std::string& unitId, const std::string& tileId) const
 {
+  Unit const& unit = getUnit(unitId);
+
+  if(unit.carriedUnits.empty())
+    return false;
+
+  Tile const& tile = getTile(tileId);
+  std::vector<Coordinates> unloadCoordinates = neighborCoordinates({tile.x, tile.y});
+  std::vector<Tile const*> unloadTiles;
+
+  for(Coordinates const& c : unloadCoordinates)
+  {
+    Tile const* t = getTileAt(c.x, c.y);
+    if(t != nullptr)
+    {
+      unloadTiles.push_back(t);
+    }
+  }
+
+  for(std::string carriedId : unit.carriedUnits)
+  {
+    Unit const& carried = getUnit(carriedId);
+    UnitType const& carriedType = rules.unitTypes.at(carried.type);
+    MovementType const& carriedMovementType = rules.movementTypes.at(carriedType.movementType);
+
+    for(Tile const* t : unloadTiles)
+    {
+      auto effectIter = carriedMovementType.effectMap.find(t->type);
+      if(effectIter == carriedMovementType.effectMap.end() || effectIter->second >= 0)
+      {
+        return true;
+      }
+    }
+  }
+
   return false;
+}
+
+bool wars::Game::unitCanUnloadUnitFromTileToCoordinates(const std::string& unitId, const std::string& carriedId, const std::string& tileId, const wars::Game::Coordinates& destination) const
+{
+  Unit const& unit = getUnit(unitId);
+
+  // Reject if carried is not being carried by unit
+  if(std::find(unit.carriedUnits.begin(), unit.carriedUnits.end(), carriedId) == unit.carriedUnits.end())
+    return false;
+
+  Tile const& unloadTile = getTile(tileId);
+
+  // Reject if tiles are not adjacent
+  if(calculateDistance({unloadTile.x, unloadTile.y}, destination) != 1)
+    return false;
+
+  Unit const& carried = getUnit(carriedId);
+  UnitType const& carriedType = rules.unitTypes.at(carried.type);
+  MovementType const& carriedMovementType = rules.movementTypes.at(carriedType.movementType);
+
+  // Reject if carried can't move on unload terrain
+  auto unloadTileEffectIter = carriedMovementType.effectMap.find(unloadTile.type);
+  if(unloadTileEffectIter != carriedMovementType.effectMap.end() && unloadTileEffectIter->second < 0)
+    return false;
+
+  // Reject if carried can't move on destination terrain
+  Tile const& destinationTile = *getTileAt(destination.x, destination.y);
+  auto destinationTileEffectIter = carriedMovementType.effectMap.find(destinationTile.type);
+  if(destinationTileEffectIter != carriedMovementType.effectMap.end() && destinationTileEffectIter->second < 0)
+    return false;
+
+  return true;
+}
+
+std::vector<wars::Game::Coordinates> wars::Game::unitUnloadUnitFromTileOptions(std::string const& unitId, std::string const& carriedId, std::string const& tileId) const
+{
+  Unit const& unit = getUnit(unitId);
+
+  // Reject if carried is not being carried by unit
+  if(std::find(unit.carriedUnits.begin(), unit.carriedUnits.end(), carriedId) == unit.carriedUnits.end())
+    return {};
+
+  Tile const& tile = getTile(tileId);
+  std::vector<Coordinates> unloadCoordinates = neighborCoordinates({tile.x, tile.y});
+  std::vector<Tile const*> unloadTiles;
+
+  // Determine adjacent tiles
+  for(Coordinates const& c : unloadCoordinates)
+  {
+    Tile const* t = getTileAt(c.x, c.y);
+    if(t != nullptr)
+    {
+      unloadTiles.push_back(t);
+    }
+  }
+
+
+  Unit const& carried = getUnit(carriedId);
+  UnitType const& carriedType = rules.unitTypes.at(carried.type);
+  MovementType const& carriedMovementType = rules.movementTypes.at(carriedType.movementType);
+
+  // Find tiles carried can be unloaded to
+  std::vector<Coordinates> result;
+  for(Tile const* t : unloadTiles)
+  {
+    auto effectIter = carriedMovementType.effectMap.find(t->type);
+    if(effectIter == carriedMovementType.effectMap.end() || effectIter->second >= 0)
+    {
+      result.push_back({t->x, t->y});
+    }
+  }
+
+  return result;
 }
 
 std::string wars::Game::updateTileFromJSON(const json::Value& value)

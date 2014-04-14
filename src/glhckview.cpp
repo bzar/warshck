@@ -716,6 +716,40 @@ void wars::GlhckView::handleClick()
     }
     case Phase::UNLOAD_TILE:
     {
+      for(auto& item : _tiles)
+      {
+        item.second.effects.highlight = false;
+      }
+
+      Game::Unit const& unit = _game->getUnit(_inputState.selected.unitId);
+      std::string const& carriedId = unit.carriedUnits.at(_inputState.selected.carriedIndex);
+      std::string const& tileId = _inputState.selected.tileId;
+      Game::Coordinates destination = {_inputState.hexCursor.x, _inputState.hexCursor.y};
+
+      if(_game->unitCanUnloadUnitFromTileToCoordinates(unit.id, carriedId, tileId, destination))
+      {
+        Game::Tile const& unloadTile = _game->getTile(tileId);
+        Game::Path path = _game->findUnitPath(unit.id, {unloadTile.x, unloadTile.y});
+        if(path.empty())
+        {
+          _phase = Phase::SELECT;
+        }
+        else
+        {
+          Input::Position unloadPosition = {unloadTile.x, unloadTile.y};
+          Input::Position destinationPosition = {destination.x, destination.y};
+
+          _phase = Phase::WAIT;
+          _input->moveUnload(_game->getGameId(), unit.id, unloadPosition, convertPath(path), carriedId, destinationPosition).then<void>([this](bool success) {
+            std::cout << "moveUnload " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+            _phase = Phase::SELECT;
+          });
+        }
+      }
+      else
+      {
+        _phase = Phase::SELECT;
+      }
       break;
     }
     case Phase::BUILD:
@@ -747,6 +781,7 @@ void wars::GlhckView::handleKey(int key)
       int result;
       if(_menu.input(key, &result))
       {
+        _menu.clear();
         Action action = static_cast<Action>(result);
         switch(action) {
           case Action::CANCEL:
@@ -875,12 +910,14 @@ void wars::GlhckView::handleKey(int key)
             else
             {
               _phase = Phase::UNLOAD_UNIT;
-              _menu.clear();
               for(int i = 0; i < unit.carriedUnits.size(); ++i)
               {
-                _menu.addOption(i, unit.carriedUnits.at(i), i);
+                Game::Unit const& carried = _game->getUnit(unit.carriedUnits.at(i));
+                UnitType const& carriedType = _game->getRules().unitTypes.at(carried.type);
+                std::ostringstream oss;
+                oss << carriedType.name << " (" << unit.health << ")";
+                _menu.addOption(i, oss.str(), i);
               }
-              _menu.update();
             }
             break;
           }
@@ -888,7 +925,6 @@ void wars::GlhckView::handleKey(int key)
             break;
         }
       }
-      _menu.clear();
       _menu.update();
       break;
     }
@@ -910,6 +946,17 @@ void wars::GlhckView::handleKey(int key)
         _phase = Phase::UNLOAD_TILE;
         _menu.clear();
         _menu.update();
+
+        Game::Unit const& carrier = _game->getUnit(_inputState.selected.unitId);
+        Game::Unit const& carried = _game->getUnit(carrier.carriedUnits.at(_inputState.selected.carriedIndex));
+        _inputState.hexOptions = _game->unitUnloadUnitFromTileOptions(carrier.id, carried.id, _inputState.selected.tileId);
+
+        for(auto& item : _tiles)
+        {
+          Game::Tile const& t = _game->getTile(item.first);
+          Game::Coordinates c = {t.x, t.y};
+          item.second.effects.highlight = std::find(_inputState.hexOptions.begin(), _inputState.hexOptions.end(), c) != _inputState.hexOptions.end();
+        }
       }
       break;
     }
