@@ -646,7 +646,9 @@ void wars::GlhckView::handleClick()
                 UnitType const& t = item.second;
                 if(terrain.buildTypes.find(t.unitClass) != terrain.buildTypes.end())
                 {
-                  _menu.addOption(t.id, t.name, t.id);
+                  std::ostringstream oss;
+                  oss << t.name << " (" << t.price << ")";
+                  _menu.addOption(t.id, oss.str(), t.id);
                 }
               }
               _menu.update();
@@ -1011,15 +1013,19 @@ void wars::GlhckView::handleKey(int key)
       int result;
       if(_menu.input(key, &result))
       {
-        std::cout << "Build unit id " << result << std::endl;
-        Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
-        _input->build(_game->getGameId(), {tile.x, tile.y}, result).then<void>([this](bool const& success) {
-          _phase = Phase::SELECT;
-          std::cout << "Build " << (success ? "SUCCESS" : "FAILURE") << std::endl;
-        });
-        _phase = Phase::WAIT;
-        _menu.clear();
-        _menu.update();
+        UnitType const& unitType = _game->getRules().unitTypes.at(result);
+        if(_funds >= unitType.price)
+        {
+          std::cout << "Build unit id " << result << std::endl;
+          Game::Tile const& tile = _game->getTile(_inputState.selected.tileId);
+          _input->build(_game->getGameId(), {tile.x, tile.y}, result).then<void>([this](bool const& success) {
+            _phase = Phase::SELECT;
+            std::cout << "Build " << (success ? "SUCCESS" : "FAILURE") << std::endl;
+          });
+          _phase = Phase::WAIT;
+          _menu.clear();
+          _menu.update();
+        }
       }
       break;
     }
