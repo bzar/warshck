@@ -50,7 +50,7 @@ void wars::GlhckView::term()
 
 wars::GlhckView::GlhckView(Input* input) :
   _input(input), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu(),
-  _funds(0), _statusText(nullptr), _statusFont(0), _sky(nullptr)
+  _funds(0), _statusText(nullptr), _statusFont(0), _sky(nullptr), _labelsText(nullptr), _labelsFont(0)
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
@@ -85,6 +85,9 @@ wars::GlhckView::GlhckView(Input* input) :
   glhckCameraUpdate(_camera);
 
   loadTheme("config/theme.json");
+
+  _labelsText = glhckTextNew(512, 512);
+  _labelsFont = glhckTextFontNewKakwafont(_labelsText, nullptr);
 }
 
 wars::GlhckView::~GlhckView()
@@ -143,6 +146,11 @@ void wars::GlhckView::setGame(Game* game)
       {
         wars::Game::Unit const& unit = _game->getUnit(*e.captured.unitId);
         wars::Game::Tile const& tile = _game->getTile(*e.captured.tileId);
+        auto tileIter = _tiles.find(tile.id);
+        if(tileIter != _tiles.end()  && tileIter->second.prop != nullptr)
+        {
+          updatePropTexture(tileIter->second.prop, tile.type, unit.owner);
+        }
         break;
       }
       case wars::Game::EventType::DEPLOY:
@@ -310,7 +318,17 @@ bool wars::GlhckView::handle()
   bool unitsHighlighted = false;
   for(auto& item : _units)
   {
+    Game::Unit const& unit = _game->getUnit(item.first);
     unitsHighlighted |= item.second.effects.highlight;
+
+    glhckColorb diffuse = _theme.playerColors[unit.owner];
+    if(unit.moved)
+    {
+      diffuse.r *= 0.5;
+      diffuse.g *= 0.5;
+      diffuse.b *= 0.5;
+    }
+    glhckMaterialDiffuse(glhckObjectGetMaterial(item.second.obj), &diffuse);
     glhckObjectDraw(item.second.obj);
   }
 
@@ -330,6 +348,43 @@ bool wars::GlhckView::handle()
     glhckRender();
     glhckRenderBlendFunc(GLHCK_ZERO, GLHCK_ZERO);
   }
+
+  int w, h;
+  glfwGetWindowSize(_window, &w, &h);
+  glhckTextClear(_labelsText);
+
+  for(auto& item : _tiles)
+  {
+    Game::Tile const& tile = _game->getTile(item.first);
+    if(tile.capturePoints < 200)
+    {
+      std::ostringstream oss;
+      oss << tile.capturePoints;
+
+      const kmVec3* pos = glhckObjectGetPosition(item.second.hex);
+      kmVec2 viewPos;
+      kmVec2* result = glhckCameraPointViewCoordinates(_camera, &viewPos, pos);
+      if(result != nullptr)
+      {
+        glhckTextStash(_labelsText, _labelsFont, 20, viewPos.x * w, h - viewPos.y * h, oss.str().data(), nullptr);
+      }
+    }
+  }
+
+  for(auto& item : _units)
+  {
+    Game::Unit const& unit = _game->getUnit(item.first);
+    std::ostringstream oss;
+    oss << unit.health;
+    const kmVec3* pos = glhckObjectGetPosition(item.second.obj);
+    kmVec2 viewPos;
+    kmVec2* result = glhckCameraPointViewCoordinates(_camera, &viewPos, pos);
+    if(result != nullptr)
+    {
+      glhckTextStash(_labelsText, _labelsFont, 20, viewPos.x * w, h - viewPos.y * h, oss.str().data(), nullptr);
+    }
+  }
+  glhckTextRender(_labelsText);
 
   _menu.render();
 
@@ -1142,6 +1197,27 @@ void wars::GlhckView::updateFunds()
   });
 }
 
+void wars::GlhckView::updatePropTexture(glhckObject* o, int terrainId, int owner)
+{
+  if(_theme.tiles[terrainId].prop.textures.size() > owner)
+  {
+    glhckTexture* texture = glhckTextureNewFromFile(_theme.tiles[terrainId].prop.textures[owner].data(),
+        glhckImportDefaultImageParameters(), glhckTextureDefaultLinearParameters());
+    glhckMaterial* m = glhckObjectGetMaterial(o);
+    if(m == nullptr)
+    {
+      m = glhckMaterialNew(texture);
+      glhckObjectMaterial(o, m);
+      glhckMaterialFree(m);
+    }
+    else
+    {
+      glhckMaterialTexture(m, texture);
+    }
+    glhckTextureFree(texture);
+  }
+}
+
 wars::Input::Path wars::GlhckView::convertPath(const wars::Game::Path& path) const
 {
   Input::Path result;
@@ -1214,23 +1290,7 @@ glhckObject*wars::GlhckView::createTileProp(const wars::Game::Tile& tile)
 
   glhckObject* o = glhckModelNew(_theme.tiles[terrain.id].prop.model.data(), 1.0, glhckImportDefaultModelParameters());
 
-  if(_theme.tiles[terrain.id].prop.textures.size() > tile.owner)
-  {
-    glhckTexture* texture = glhckTextureNewFromFile(_theme.tiles[terrain.id].prop.textures[tile.owner].data(),
-        glhckImportDefaultImageParameters(), glhckTextureDefaultLinearParameters());
-    glhckMaterial* m = glhckObjectGetMaterial(o);
-    if(m == nullptr)
-    {
-      m = glhckMaterialNew(texture);
-      glhckObjectMaterial(o, m);
-      glhckMaterialFree(m);
-    }
-    else
-    {
-      glhckMaterialTexture(m, texture);
-    }
-    glhckTextureFree(texture);
-  }
+  updatePropTexture(o, terrain.id, tile.owner);
 
   kmVec3 pos = {static_cast<kmScalar>(tile.x), static_cast<kmScalar>(tile.y), 0};
   kmVec3Add(&pos, &pos, &_theme.tiles[tile.type].offset);

@@ -123,6 +123,7 @@ namespace wars
     void updateStatusText();
     void setStatusText(std::string const& str);
     void updateFunds();
+    void updatePropTexture(glhckObject* o, int terrainId, int owner);
 
     Input::Path convertPath(Game::Path const& path) const;
 
@@ -159,6 +160,9 @@ namespace wars
     unsigned int _statusFont;
 
     glhckObject* _sky;
+
+    glhckText* _labelsText;
+    unsigned int _labelsFont;
   };
 }
 #endif // WARS_GLHCKVIEW_H
