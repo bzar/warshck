@@ -367,10 +367,8 @@ bool wars::GlhckView::handle()
     glhckRenderBlendFunc(GLHCK_ZERO, GLHCK_ZERO);
   }
 
-  int w, h;
-  glfwGetWindowSize(_window, &w, &h);
+  glhckRenderStatePush();
   glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT);
-  glhckRenderStatePush2D(w, h, 0, 100);
   glhckRenderBlendFunc(GLHCK_SRC_ALPHA, GLHCK_ONE_MINUS_SRC_ALPHA);
 
   for(auto& item : _tiles)
@@ -384,13 +382,10 @@ bool wars::GlhckView::handle()
     if(item.second.label.isVisible())
     {
       const kmVec3* pos = glhckObjectGetPosition(item.second.hex);
-      kmVec2 viewPos;
-      kmVec2* result = glhckCameraPointViewCoordinates(_camera, &viewPos, pos);
-      if(result != nullptr)
-      {
-        glhckObjectPositionf(item.second.label.getObject(), viewPos.x * w, h - viewPos.y * h, 0);
-        glhckObjectDraw(item.second.label.getObject());
-      }
+      glhckObjectPosition(item.second.label.getObject(), pos);
+      glhckObjectRotationf(item.second.label.getObject(), 45, 0, 0);
+      glhckObjectMovef(item.second.label.getObject(), 0, -1.5, 1);
+      glhckObjectDraw(item.second.label.getObject());
     }
   }
 

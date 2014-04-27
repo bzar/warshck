@@ -7,9 +7,6 @@ int wars::HexLabel::_sharedRefs = 0;
 
 namespace
 {
-  float const _width = 96.0f; // TEMPORARY
-  float const _height = 36.0f; // TEMPORARY
-
   glhckRect relativeRect(glhckRect const& rect, float const w, float const h);
 }
 wars::HexLabel::HexLabel(const Theme* theme) : _theme(theme), _obj(nullptr),
@@ -76,30 +73,34 @@ glhckObject* wars::HexLabel::getObject()
 
 void wars::HexLabel::refresh()
 {
+  float tWidth = 2 * _theme->hexLabel.image.unitBody.w;
+  float tHeight = _theme->hexLabel.image.unitTitle.h + _theme->hexLabel.image.unitBody.h;
+  float oWidth = 4;
+  float oHeight = oWidth * tHeight / tWidth;
+
   if(_obj == nullptr)
   {
-    _obj = glhckPlaneNew(_width, _height);
+    _obj = glhckPlaneNew(oWidth, oHeight);
     glhckTexture *texture = glhckTextureNew();
-    glhckTextureCreate(texture, GLHCK_TEXTURE_2D, 0, _width, _height, 0, 0, GLHCK_RGBA, GLHCK_FLOAT, 0, NULL);
+    glhckTextureCreate(texture, GLHCK_TEXTURE_2D, 0, tWidth, tHeight, 0, 0, GLHCK_RGBA, GLHCK_FLOAT, 0, NULL);
+    glhckTextureParameter(texture, glhckTextureDefaultSpriteParameters());
     glhckObjectMaterial(_obj, glhckMaterialNew(texture));
   }
 
   glhckFramebuffer* fbo = glhckFramebufferNew(GLHCK_FRAMEBUFFER);
   glhckFramebufferAttachTexture(fbo, glhckMaterialGetTexture(glhckObjectGetMaterial(_obj)), GLHCK_COLOR_ATTACHMENT0);
-  glhckFramebufferRecti(fbo, 0, 0, _width, _height);
+  glhckFramebufferRecti(fbo, 0, 0, tWidth, tHeight);
   glhckFramebufferBegin(fbo);
-  glhckRenderProjection2D(_width, _height, 0, 100);
-  glhckRenderClearColorb(0, 0, 0, 0);
+  glhckRenderProjection2D(tWidth, tHeight, 0, 100);
+  glhckRenderClearColorb(255, 0, 255, 0);
   glhckRenderClear(GLHCK_COLOR_BUFFER_BIT | GLHCK_DEPTH_BUFFER_BIT);
-  float partWidth = _width / 2.0f;
+  float partWidth = tWidth / 2.0f;
   bool showHexLabel = _hex.capturePoints < 200;
   bool showUnitLabel = _hex.hasUnit;
 
-  float tWidth = 2 * _theme->hexLabel.image.unitBody.w;
-  float tHeight = _theme->hexLabel.image.unitTitle.h + _theme->hexLabel.image.unitBody.h;
 
-  float titleHeight = _height * _theme->hexLabel.image.unitTitle.h / tHeight;
-  float bodyHeight = _height * _theme->hexLabel.image.unitBody.h / tHeight;
+  float titleHeight = _theme->hexLabel.image.unitTitle.h;
+  float bodyHeight = _theme->hexLabel.image.unitBody.h;
 
   glhckTextClear(_shared->text);
   if(showUnitLabel)
@@ -122,8 +123,8 @@ void wars::HexLabel::refresh()
     glhckObjectDraw(unitBody);
     glhckObjectFree(unitBody);
 
-    float iconWidth = _width * _theme->hexLabel.image.unitDeployIcon.w / tWidth;
-    float iconHeight = _height * _theme->hexLabel.image.unitDeployIcon.h / tHeight;
+    float iconWidth = _theme->hexLabel.image.unitDeployIcon.h;
+    float iconHeight = _theme->hexLabel.image.unitDeployIcon.h;
 
     // Unit deployed
     if(_unit.deployed)
