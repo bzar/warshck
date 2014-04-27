@@ -8,6 +8,8 @@
 #include "glfwhck.h"
 #include "jsonpp.h"
 #include "textmenu.h"
+#include "hexlabel.h"
+#include "theme.h"
 
 #include <string>
 #include <unordered_map>
@@ -43,6 +45,9 @@ namespace wars
       std::string id;
       glhckObject* hex;
       glhckObject* prop;
+      bool labelUpdate;
+      HexLabel label;
+
       struct
       {
         bool highlight = false;
@@ -84,33 +89,6 @@ namespace wars
       std::unordered_map<std::string, int> attackOptions;
     };
 
-    struct Theme
-    {
-      struct Tile
-      {
-        struct Prop
-        {
-          std::string model;
-          std::vector<std::string> textures;
-        };
-
-        std::string model;
-        Prop prop;
-        kmVec3 offset;
-      };
-
-      struct
-      {
-        kmVec3 x;
-        kmVec3 y;
-        kmVec3 z;
-      } base;
-
-      std::vector<glhckColorb> playerColors;
-      std::vector<Tile> tiles;
-    };
-
-
     kmVec3 hexToRect(kmVec3 const& v);
     kmVec3 rectToHex(kmVec3 const& v);
 
@@ -124,14 +102,13 @@ namespace wars
     void setStatusText(std::string const& str);
     void updateFunds();
     void updatePropTexture(glhckObject* o, int terrainId, int owner);
+    void updateHexLabel(std::string const& id);
 
     Input::Path convertPath(Game::Path const& path) const;
 
     glhckObject* createUnitObject(Game::Unit const& unit);
     glhckObject* createTileHex(Game::Tile const& tile);
     glhckObject* createTileProp(Game::Tile const& tile);
-
-    void loadTheme(std::string const& themeFile);
 
     Input* _input;
     Game* _game;
@@ -160,9 +137,6 @@ namespace wars
     unsigned int _statusFont;
 
     glhckObject* _sky;
-
-    glhckText* _labelsText;
-    unsigned int _labelsFont;
   };
 }
 #endif // WARS_GLHCKVIEW_H

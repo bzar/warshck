@@ -50,7 +50,7 @@ void wars::GlhckView::term()
 
 wars::GlhckView::GlhckView(Input* input) :
   _input(input), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu(),
-  _funds(0), _statusText(nullptr), _statusFont(0), _sky(nullptr), _labelsText(nullptr), _labelsFont(0)
+  _funds(0), _statusText(nullptr), _statusFont(0), _sky(nullptr)
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
@@ -84,10 +84,7 @@ wars::GlhckView::GlhckView(Input* input) :
 
   glhckCameraUpdate(_camera);
 
-  loadTheme("config/theme.json");
-
-  _labelsText = glhckTextNew(512, 512);
-  _labelsFont = glhckTextFontNewKakwafont(_labelsText, nullptr);
+  _theme = loadTheme("config/theme.json");
 }
 
 wars::GlhckView::~GlhckView()
@@ -116,30 +113,39 @@ void wars::GlhckView::setGame(Game* game)
         glhckObject* o = _units.at(unit.id).obj;
         kmVec3 pos = hexToRect({static_cast<kmScalar>(next.x), static_cast<kmScalar>(next.y), 1});
         glhckObjectPositionf(o, pos.x, pos.y, pos.z);
+
+        _tiles.at(next.id).labelUpdate = true;
+        _tiles.at(prev.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::WAIT:
       {
         wars::Game::Unit const& unit = _game->getUnit(*e.wait.unitId);
         wars::Game::Tile const& curr = _game->getTile(unit.tileId);
+        _tiles.at(curr.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::ATTACK:
       {
         wars::Game::Unit const& attacker = _game->getUnit(*e.attack.attackerId);
         wars::Game::Unit const& target = _game->getUnit(*e.attack.targetId);
+        _tiles.at(attacker.tileId).labelUpdate = true;
+        _tiles.at(target.tileId).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::COUNTERATTACK:
       {
         wars::Game::Unit const& attacker = _game->getUnit(*e.counterattack.attackerId);
         wars::Game::Unit const& target = _game->getUnit(*e.counterattack.targetId);
+        _tiles.at(attacker.tileId).labelUpdate = true;
+        _tiles.at(target.tileId).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::CAPTURE:
       {
         wars::Game::Unit const& unit = _game->getUnit(*e.capture.unitId);
         wars::Game::Tile const& tile = _game->getTile(*e.capture.tileId);
+        _tiles.at(tile.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::CAPTURED:
@@ -151,18 +157,21 @@ void wars::GlhckView::setGame(Game* game)
         {
           updatePropTexture(tileIter->second.prop, tile.type, unit.owner);
         }
+        _tiles.at(tile.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::DEPLOY:
       {
         wars::Game::Unit const& unit = _game->getUnit(*e.deploy.unitId);
         wars::Game::Tile const& curr = _game->getTile(unit.tileId);
+        _tiles.at(curr.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::UNDEPLOY:
       {
         wars::Game::Unit const& unit = _game->getUnit(*e.undeploy.unitId);
         wars::Game::Tile const& curr = _game->getTile(unit.tileId);
+        _tiles.at(curr.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::LOAD:
@@ -173,6 +182,8 @@ void wars::GlhckView::setGame(Game* game)
         glhckObject* o = _units.at(unit.id).obj;
         _units.erase(unit.id);
         glhckObjectFree(o);
+        _tiles.at(curr.id).labelUpdate = true;
+        _tiles.at(carrier.tileId).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::UNLOAD:
@@ -184,6 +195,8 @@ void wars::GlhckView::setGame(Game* game)
         _units[unit.id] = {unit.id, unitObject};
         kmVec3 pos = hexToRect({static_cast<kmScalar>(next.x), static_cast<kmScalar>(next.y), 1});
         glhckObjectPositionf(unitObject, pos.x, pos.y, pos.z);
+        _tiles.at(carrier.tileId).labelUpdate = true;
+        _tiles.at(next.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::DESTROY:
@@ -193,12 +206,14 @@ void wars::GlhckView::setGame(Game* game)
         glhckObject* o = _units.at(unit.id).obj;
         _units.erase(unit.id);
         glhckObjectFree(o);
+        _tiles.at(curr.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::REPAIR:
       {
         wars::Game::Unit const& unit = _game->getUnit(*e.repair.unitId);
         wars::Game::Tile const& curr = _game->getTile(unit.tileId);
+        _tiles.at(curr.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::BUILD:
@@ -209,16 +224,19 @@ void wars::GlhckView::setGame(Game* game)
         glhckObject* unitObject = createUnitObject(unit);
         if(unitObject != nullptr)
           _units[unit.id] = {unit.id, unitObject};
+        _tiles.at(tile.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::REGENERATE_CAPTURE_POINTS:
       {
         wars::Game::Tile const& tile = _game->getTile(*e.regenerateCapturePoints.tileId);
+        _tiles.at(tile.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::PRODUCE_FUNDS:
       {
         wars::Game::Tile const& tile = _game->getTile(*e.produceFunds.tileId);
+        _tiles.at(tile.id).labelUpdate = true;
         break;
       }
       case wars::Game::EventType::BEGIN_TURN:
@@ -351,40 +369,33 @@ bool wars::GlhckView::handle()
 
   int w, h;
   glfwGetWindowSize(_window, &w, &h);
-  glhckTextClear(_labelsText);
+  glhckRenderClear(GLHCK_DEPTH_BUFFER_BIT);
+  glhckRenderStatePush2D(w, h, 0, 100);
+  glhckRenderBlendFunc(GLHCK_SRC_ALPHA, GLHCK_ONE_MINUS_SRC_ALPHA);
 
   for(auto& item : _tiles)
   {
-    Game::Tile const& tile = _game->getTile(item.first);
-    if(tile.capturePoints < 200)
+    if(item.second.labelUpdate)
     {
-      std::ostringstream oss;
-      oss << tile.capturePoints;
+      updateHexLabel(item.first);
+      item.second.labelUpdate = false;
+    }
 
+    if(item.second.label.isVisible())
+    {
       const kmVec3* pos = glhckObjectGetPosition(item.second.hex);
       kmVec2 viewPos;
       kmVec2* result = glhckCameraPointViewCoordinates(_camera, &viewPos, pos);
       if(result != nullptr)
       {
-        glhckTextStash(_labelsText, _labelsFont, 20, viewPos.x * w, h - viewPos.y * h, oss.str().data(), nullptr);
+        glhckObjectPositionf(item.second.label.getObject(), viewPos.x * w, h - viewPos.y * h, 0);
+        glhckObjectDraw(item.second.label.getObject());
       }
     }
   }
 
-  for(auto& item : _units)
-  {
-    Game::Unit const& unit = _game->getUnit(item.first);
-    std::ostringstream oss;
-    oss << unit.health;
-    const kmVec3* pos = glhckObjectGetPosition(item.second.obj);
-    kmVec2 viewPos;
-    kmVec2* result = glhckCameraPointViewCoordinates(_camera, &viewPos, pos);
-    if(result != nullptr)
-    {
-      glhckTextStash(_labelsText, _labelsFont, 20, viewPos.x * w, h - viewPos.y * h, oss.str().data(), nullptr);
-    }
-  }
-  glhckTextRender(_labelsText);
+  glhckRender();
+  glhckRenderStatePop();
 
   _menu.render();
 
@@ -470,11 +481,23 @@ void wars::GlhckView::initializeFromGame()
     maxCoords.x = std::max(maxCoords.x, static_cast<float>(item.second.x));
     maxCoords.y = std::max(maxCoords.y, static_cast<float>(item.second.y));
 
-    _tiles[item.first] = {
+    Tile tile = {
       item.first,
       createTileHex(item.second),
-      createTileProp(item.second)
+      createTileProp(item.second),
+      false,
+      HexLabel(&_theme)
     };
+
+    tile.label.setHexInformation(_theme.playerColors.at(item.second.owner), item.second.capturePoints, item.second.beingCaptured, !item.second.unitId.empty());
+    if(!item.second.unitId.empty())
+    {
+      Game::Unit const& unit = units.at(item.second.unitId);
+      UnitType const& unitType = _game->getRules().unitTypes.at(unit.type);
+      tile.label.setUnitInformation(_theme.playerColors.at(unit.owner), unit.health, 0, unit.deployed, unit.capturing, unitType.carryNum, unit.carriedUnits.size());
+    }
+    tile.label.refresh();
+    _tiles.insert(make_pair(item.first, tile));
     first = false;
   }
 
@@ -1218,6 +1241,21 @@ void wars::GlhckView::updatePropTexture(glhckObject* o, int terrainId, int owner
   }
 }
 
+void wars::GlhckView::updateHexLabel(const std::string& id)
+{
+  Tile& t = _tiles.at(id);
+  Game::Tile const& tile = _game->getTile(t.id);
+  t.label.setHexInformation(_theme.playerColors.at(tile.owner), tile.capturePoints, tile.beingCaptured, !tile.unitId.empty());
+
+  if(!tile.unitId.empty())
+  {
+    Game::Unit const& unit = _game->getUnit(tile.unitId);
+    UnitType const& unitType = _game->getRules().unitTypes.at(unit.type);
+    t.label.setUnitInformation(_theme.playerColors.at(unit.owner), unit.health, 0, unit.deployed, unit.capturing, unitType.carryNum, unit.carriedUnits.size());
+  }
+  t.label.refresh();
+}
+
 wars::Input::Path wars::GlhckView::convertPath(const wars::Game::Path& path) const
 {
   Input::Path result;
@@ -1299,70 +1337,6 @@ glhckObject*wars::GlhckView::createTileProp(const wars::Game::Tile& tile)
   return o;
 
 
-}
-
-void wars::GlhckView::loadTheme(const std::string& themeFile)
-{
-  json::Value v = json::Value::parseFile(themeFile);
-
-  json::Value xb = v.get("base").get("x");
-  _theme.base.x.x = xb.at(0).doubleValue();
-  _theme.base.x.y = xb.at(1).doubleValue();
-  _theme.base.x.z = xb.at(2).doubleValue();
-
-  json::Value yb = v.get("base").get("y");
-  _theme.base.y.x = yb.at(0).doubleValue();
-  _theme.base.y.y = yb.at(1).doubleValue();
-  _theme.base.y.z = yb.at(2).doubleValue();
-
-  json::Value zb = v.get("base").get("z");
-  _theme.base.z.x = zb.at(0).doubleValue();
-  _theme.base.z.y = zb.at(1).doubleValue();
-  _theme.base.z.z = zb.at(2).doubleValue();
-
-  _theme.playerColors.clear();
-  json::Value pc = v.get("playerColors");
-  for(int i = 0; i < pc.size(); ++i)
-  {
-    json::Value c = pc.at(i);
-    glhckColorb color;
-    color.r = c.at(0).longValue();
-    color.g = c.at(1).longValue();
-    color.b = c.at(2).longValue();
-    color.a = c.at(3).longValue();
-    _theme.playerColors.push_back(color);
-  }
-
-  _theme.tiles.clear();
-  json::Value tiles = v.get("tiles");
-  for(int i = 0; i < tiles.size(); ++i)
-  {
-    json::Value t = tiles.at(i);
-    Theme::Tile tile = {"", {"", {}}, {0, 0, 0}};
-    tile.model = t.get("model").stringValue();
-    json::Value o = t.get("offset");
-    if(o.type() != json::Value::Type::NONE)
-    {
-      tile.offset.x = o.at(0).doubleValue();
-      tile.offset.y = o.at(1).doubleValue();
-      tile.offset.z = o.at(2).doubleValue();
-    }
-    json::Value prop = t.get("prop");
-    if(prop.type() != json::Value::Type::NONE)
-    {
-      tile.prop.model = prop.get("model").stringValue();
-      json::Value textures = prop.get("textures");
-      if(textures.type() != json::Value::Type::NONE)
-      {
-        for(int j = 0; j < textures.size(); ++j)
-        {
-          tile.prop.textures.push_back(textures.at(j).stringValue());
-        }
-      }
-    }
-
-    _theme.tiles.push_back(tile);
-  }
 }
 
 

@@ -79,5 +79,20 @@
       "model": "models/concrete-hextile.glhckm"
     }
 
-  ]
+  ],
+
+  "hexLabel": {
+    "image": {
+      "file": "textures/hex-label.png",
+      "unitTitle": { "x": 0, "y": 0, "w": 192, "h": 48},
+      "hexTitle": { "x": 0, "y": 160, "w": 192, "h": 48},
+      "unitBody": { "x": 0, "y": 56, "w": 192, "h": 96},
+      "hexBodyCapture": { "x": 0, "y": 216, "w": 192, "h": 96},
+      "hexBodyRegenerate": { "x": 0, "y": 320, "w": 192, "h": 96},
+      "unitCaptureIcon": { "x": 408, "y": 0, "w": 32, "h": 32},
+      "unitDeployIcon": { "x": 368, "y": 0, "w": 32, "h": 32},
+      "unitCarryFreeIcon": { "x": 440, "y": 0, "w": 32, "h": 32},
+      "unitCarryUsedIcon": { "x": 480, "y": 0, "w": 32, "h": 32},
+    },
+  }
 }
