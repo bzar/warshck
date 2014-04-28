@@ -41,6 +41,7 @@ namespace wars
         glhckRect unitTitle;
         glhckRect hexTitle;
         glhckRect unitBody;
+        glhckRect unitBodyDamage;
         glhckRect hexBodyCapture;
         glhckRect hexBodyRegenerate;
         glhckRect unitCaptureIcon;

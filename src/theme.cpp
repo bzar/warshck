@@ -73,6 +73,7 @@ wars::Theme wars::loadTheme(std::string const& themeFile)
   theme.hexLabel.image.unitTitle = parseRect(hli.get("unitTitle"));
   theme.hexLabel.image.hexTitle = parseRect(hli.get("hexTitle"));
   theme.hexLabel.image.unitBody = parseRect(hli.get("unitBody"));
+  theme.hexLabel.image.unitBodyDamage = parseRect(hli.get("unitBodyDamage"));
   theme.hexLabel.image.hexBodyCapture = parseRect(hli.get("hexBodyCapture"));
   theme.hexLabel.image.hexBodyRegenerate = parseRect(hli.get("hexBodyRegenerate"));
   theme.hexLabel.image.unitCaptureIcon = parseRect(hli.get("unitCaptureIcon"));

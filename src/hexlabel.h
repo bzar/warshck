@@ -17,6 +17,7 @@ namespace wars
 
     void setHexInformation(glhckColorb const& ownerColor, int capturePoints, bool beingCaptured, bool hasUnit);
     void setUnitInformation(glhckColorb const& ownerColor, int health, int damage, bool deployed, bool capturing, int capacity, int carrying);
+    void setUnitDamage(int damage);
 
     glhckObject* getObject();
     void refresh();

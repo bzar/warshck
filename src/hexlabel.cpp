@@ -66,6 +66,11 @@ void wars::HexLabel::setUnitInformation(const glhckColorb& ownerColor, int healt
   _unit= {ownerColor, health, damage, deployed, capturing, capacity, carrying};
 }
 
+void wars::HexLabel::setUnitDamage(int damage)
+{
+  _unit.damage = damage;
+}
+
 glhckObject* wars::HexLabel::getObject()
 {
   return _obj;
@@ -83,7 +88,7 @@ void wars::HexLabel::refresh()
     _obj = glhckPlaneNew(oWidth, oHeight);
     glhckTexture *texture = glhckTextureNew();
     glhckTextureCreate(texture, GLHCK_TEXTURE_2D, 0, tWidth, tHeight, 0, 0, GLHCK_RGBA, GLHCK_FLOAT, 0, NULL);
-    glhckTextureParameter(texture, glhckTextureDefaultSpriteParameters());
+    glhckTextureParameter(texture, glhckTextureDefaultLinearParameters());
     glhckObjectMaterial(_obj, glhckMaterialNew(texture));
   }
 
@@ -97,12 +102,22 @@ void wars::HexLabel::refresh()
   float partWidth = tWidth / 2.0f;
   bool showHexLabel = _hex.capturePoints < 200;
   bool showUnitLabel = _hex.hasUnit;
-
+  bool showDamage = showUnitLabel && _unit.damage > 0;
 
   float titleHeight = _theme->hexLabel.image.unitTitle.h;
   float bodyHeight = _theme->hexLabel.image.unitBody.h;
 
   glhckTextClear(_shared->text);
+
+  if(showDamage)
+  {
+    glhckTextColorb(_shared->text, 64, 32, 32, 255);
+  }
+  else
+  {
+    glhckTextColorb(_shared->text, 255, 255, 255, 255);
+  }
+
   if(showUnitLabel)
   {
     // Unit title
@@ -118,7 +133,7 @@ void wars::HexLabel::refresh()
     // Unit body
     glhckObject* unitBody = glhckSpriteNew(_shared->texture, partWidth, bodyHeight);
     glhckObjectPositionf(unitBody, x, titleHeight + bodyHeight / 2, 0);
-    glhckRect unitBodyRect = relativeRect(_theme->hexLabel.image.unitBody, _shared->textureWidth, _shared->textureHeight);
+    glhckRect unitBodyRect = relativeRect(showDamage ? _theme->hexLabel.image.unitBodyDamage : _theme->hexLabel.image.unitBody, _shared->textureWidth, _shared->textureHeight);
     glhckMaterialTextureTransform(glhckObjectGetMaterial(unitBody), &unitBodyRect, 0);
     glhckObjectDraw(unitBody);
     glhckObjectFree(unitBody);
@@ -206,6 +221,27 @@ void wars::HexLabel::refresh()
 
   glhckRender();
   glhckTextRender(_shared->text);
+
+  if(showDamage)
+  {
+    float right = (showHexLabel ? partWidth : 3 * partWidth / 2) - 2;
+    float bottom = tHeight - 2;
+    float height = 3*bodyHeight/4;
+    std::ostringstream damage;
+    damage << _unit.damage;
+    kmVec2 damageMin, damageMax;
+    glhckTextGetMinMax(_shared->text, _shared->font, height, damage.str().data(), &damageMin, &damageMax);
+
+    glhckTextClear(_shared->text);
+    glhckTextColorb(_shared->text, 32, 0, 0, 255);
+    glhckTextStash(_shared->text, _shared->font, height, right - (damageMax.x - damageMin.x) + 3, bottom + 3, damage.str().data(), NULL);
+    glhckTextRender(_shared->text);
+
+    glhckTextClear(_shared->text);
+    glhckTextColorb(_shared->text, 255, 255, 255, 255);
+    glhckTextStash(_shared->text, _shared->font, height, right - (damageMax.x - damageMin.x), bottom, damage.str().data(), NULL);
+    glhckTextRender(_shared->text);
+  }
 
   glhckFramebufferEnd(fbo);
   glhckFramebufferFree(fbo);

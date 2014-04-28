@@ -814,9 +814,14 @@ void wars::GlhckView::handleClick()
 
       for(auto& item : _units)
       {
-        item.second.effects.highlight = false;
+        if(_inputState.attackOptions.find(item.first) != _inputState.attackOptions.end())
+        {
+          item.second.effects.highlight = false;
+          Tile& tile = _tiles.at(_game->getUnit(item.first).tileId);
+          tile.label.setUnitDamage(0);
+          tile.label.refresh();
+        }
       }
-
       break;
     }
 
@@ -933,11 +938,20 @@ void wars::GlhckView::handleKey(int key)
             _inputState.attackOptions = _game->findAttackOptions(_inputState.selected.unitId, {tile.x, tile.y});
             std::cout << "Attack options:" << std::endl;
             for(auto const& o : _inputState.attackOptions)
+            {
               std::cout << o.first << ": " << o.second << std::endl;
+            }
 
             for(auto& item : _units)
             {
-              item.second.effects.highlight = _inputState.attackOptions.find(item.first) != _inputState.attackOptions.end();
+              auto iter = _inputState.attackOptions.find(item.first);
+              if(iter != _inputState.attackOptions.end())
+              {
+                item.second.effects.highlight = true;
+                Tile& tile = _tiles.at(_game->getUnit(item.first).tileId);
+                tile.label.setUnitDamage(iter->second);
+                tile.label.refresh();
+              }
             }
 
             break;
