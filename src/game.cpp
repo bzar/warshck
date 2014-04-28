@@ -1305,10 +1305,10 @@ std::string wars::Game::updateUnitFromJSON(const json::Value& value)
   {
     Unit u;
     u.id = unitId;
-    units[unitId] = u;
     u.health = 100;
     u.deployed = false;
     u.capturing = false;
+    units[unitId] = u;
   }
   Unit& unit =  units[unitId];
 
