@@ -326,6 +326,7 @@ void wars::Game::capturedTile(std::string const& unitId, std::string const& tile
   event.captured.tileId = &tileId;
   eventStream.push(event);
 
+  units.at(unitId).moved = true;
   Tile& tile = tiles.at(tileId);
   tile.capturePoints = 1;
   tile.beingCaptured = false;
