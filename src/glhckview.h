@@ -137,6 +137,7 @@ namespace wars
     unsigned int _statusFont;
 
     glhckObject* _sky;
+    bool _gameInitialized;
   };
 }
 #endif // WARS_GLHCKVIEW_H

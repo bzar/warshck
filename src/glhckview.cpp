@@ -50,7 +50,7 @@ void wars::GlhckView::term()
 
 wars::GlhckView::GlhckView(Input* input) :
   _input(input), _window(nullptr), _shouldQuit(false), _units(), _tiles(), _menu(),
-  _funds(0), _statusText(nullptr), _statusFont(0), _sky(nullptr)
+  _funds(0), _statusText(nullptr), _statusFont(0), _sky(nullptr), _gameInitialized(false)
 {
   _window = glfwCreateWindow(800, 480, "warshck", NULL, NULL);
   _glfwEvents = glfwhckEventQueueNew(_window, GLFWHCK_EVENTS_ALL);
@@ -103,6 +103,7 @@ void wars::GlhckView::setGame(Game* game)
       {
         initializeFromGame();
         updateFunds();
+        _gameInitialized = true;
         break;
       }
       case wars::Game::EventType::MOVE:
@@ -270,6 +271,9 @@ void wars::GlhckView::setGame(Game* game)
 
 bool wars::GlhckView::handle()
 {
+  if(!_gameInitialized)
+    return true;
+
   glfwPollEvents();
 
   handleInput();
@@ -1203,7 +1207,9 @@ void wars::GlhckView::updateStatusText()
   };
 
   std::ostringstream oss;
-  oss << PHASE_NAMES[static_cast<int>(_phase)] << " | " << _funds << " credits";
+  oss << PHASE_NAMES[static_cast<int>(_phase)]
+      << " | " << _funds << " credits";
+  oss << " | " << "Player " << _game->getInTurn().playerNumber << " (" << _game->getInTurn().playerName << ")";
   setStatusText(oss.str());
 }
 
