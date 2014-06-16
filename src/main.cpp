@@ -38,7 +38,7 @@ int main(int argc, char** argv)
   std::string const user = argv[4];
   std::string const pass = argv[5];
 
-  lws_set_log_level(LLL_NOTICE | LLL_LATENCY | LLL_EXT | LLL_DEBUG | LLL_INFO | LLL_PARSER | LLL_HEADER | LLL_CLIENT | LLL_WARN | LLL_ERR | LLL_COUNT, nullptr);
+  //lws_set_log_level(LLL_NOTICE | LLL_LATENCY | LLL_EXT | LLL_DEBUG | LLL_INFO | LLL_PARSER | LLL_HEADER | LLL_CLIENT | LLL_WARN | LLL_ERR | LLL_COUNT, nullptr);
   bool running = true;
   Gamenode gn;
   wars::Game game;

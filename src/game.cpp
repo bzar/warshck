@@ -1030,7 +1030,7 @@ std::unordered_map<std::string, int> wars::Game::findAttackOptions(const std::st
 
   // Return empty set if no usable weapons
   if(minRange < 0 || maxRange < 0)
-    return {};
+    return std::unordered_map<std::string, int>();
 
   // Find attackable units and damages
   std::unordered_map<std::string, int> result;
